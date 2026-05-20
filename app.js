@@ -128,12 +128,26 @@ let dataReady = false;
 // ═══════════════════════════════════════════
 function $(id) { return document.getElementById(id); }
 
-function getFlag(code) {
-  const t = TEAMS[code] || '';
-  return t.split(' ')[0] || '🏳';
+// Devuelve el código del equipo envuelto en un <span> con tooltip del nombre completo
+// Ej: getTeam('MEX') → '<span title="México">MEX</span>'
+function getTeam(code) {
+  if (!code) return '';
+  const full = TEAMS[code] || '';
+  // El nombre limpio sin la bandera emoji al inicio
+  const cleanName = full.split(' ').slice(1).join(' ') || code;
+  return `<span title="${cleanName}" style="cursor:help;">${code}</span>`;
 }
 
-function getShortName(code) { return code; }
+// Solo el nombre completo del equipo (sin emoji)
+function getTeamName(code) {
+  if (!code) return '';
+  const full = TEAMS[code] || '';
+  return full.split(' ').slice(1).join(' ') || code;
+}
+
+// Helpers legacy (mantienen compatibilidad con código existente)
+function getFlag(code) { return ''; }   // ya no devolvemos bandera
+function getShortName(code) { return getTeam(code); }
 
 function flash() {
   document.body.style.background = 'rgba(0,166,81,0.06)';
@@ -569,13 +583,13 @@ function renderGroupMatches(g) {
     const key = `G_${g}_${i}`;
     const r = state.results[key] || { h: '', a: '' };
     html += `<div class="match-row">
-      <div class="team-home"><span class="team-flag">${getFlag(m[0])}</span> ${getShortName(m[0])}</div>
+      <div class="team-home">${getShortName(m[0])}</div>
       <div class="score-inputs">
         <input class="score-box" type="number" min="0" max="9" maxlength="1" value="${r.h !== null && r.h !== undefined ? r.h : ''}" placeholder="-" id="res_${key}_h" onchange="saveResult('${key}')" oninput="if(this.value.length>1)this.value=this.value.slice(-1);" onfocus="this.select()">
         <span class="score-sep">:</span>
         <input class="score-box" type="number" min="0" max="9" maxlength="1" value="${r.a !== null && r.a !== undefined ? r.a : ''}" placeholder="-" id="res_${key}_a" onchange="saveResult('${key}')" oninput="if(this.value.length>1)this.value=this.value.slice(-1);" onfocus="this.select()">
       </div>
-      <div class="team-away">${getShortName(m[1])} <span class="team-flag">${getFlag(m[1])}</span></div>
+      <div class="team-away">${getShortName(m[1])}</div>
     </div>`;
   });
   html += `</div>`;
@@ -682,11 +696,11 @@ function renderQuinielaView(pid) {
       const rh = hasReal ? real.h : '–';
       const ra = hasReal && real.a !== '' && real.a !== null && real.a !== undefined ? real.a : '–';
       html += `<div style="display:grid;grid-template-columns:minmax(56px,1fr) 56px minmax(56px,1fr) 56px 32px;align-items:center;gap:6px;padding:7px 10px;border-bottom:1px solid rgba(255,255,255,.03);">
-        <div style="font-size:12px;text-align:right;font-weight:500;">${getFlag(m[0])} ${getShortName(m[0])}</div>
+        <div style="font-size:12px;text-align:right;font-weight:500;">${getShortName(m[0])}</div>
         <div style="text-align:center;font-family:'Bebas Neue';font-size:16px;color:${hasPred?'var(--gold)':'var(--muted)'};letter-spacing:1px;">
           <span>${ph}</span><span style="opacity:.5;margin:0 2px;">·</span><span>${pa}</span>
         </div>
-        <div style="font-size:12px;text-align:left;font-weight:500;">${getShortName(m[1])} ${getFlag(m[1])}</div>
+        <div style="font-size:12px;text-align:left;font-weight:500;">${getShortName(m[1])}</div>
         <div style="text-align:center;font-family:'Bebas Neue';font-size:16px;color:${hasReal?'var(--white)':'var(--muted)'};letter-spacing:1px;">
           <span>${rh}</span><span style="opacity:.5;margin:0 2px;">·</span><span>${ra}</span>
         </div>
@@ -730,15 +744,18 @@ function renderQuinielaView(pid) {
         const real = state.elimResults[key];
         const pts = score.detail[key] || 0;
 
-        const predHome = pred.home ? (TEAMS[pred.home] || pred.home) : '—';
-        const predAway = pred.away ? (TEAMS[pred.away] || pred.away) : '—';
-        const predWinner = pred.winner ? (TEAMS[pred.winner] || pred.winner) : '—';
+        const predHome = pred.home || '—';
+        const predAway = pred.away || '—';
+        const predWinner = pred.winner || '—';
         const predScore = (pred.h !== '' && pred.h !== null && pred.h !== undefined && pred.a !== '' && pred.a !== null && pred.a !== undefined) ? `${pred.h} · ${pred.a}` : '—';
 
-        const realHome = real && real.home ? (TEAMS[real.home] || real.home) : '—';
-        const realAway = real && real.away ? (TEAMS[real.away] || real.away) : '—';
+        const realHome = real && real.home ? real.home : '—';
+        const realAway = real && real.away ? real.away : '—';
         const realScore = real && real.h !== '' && real.h !== null && real.h !== undefined && real.a !== '' && real.a !== null && real.a !== undefined ? `${real.h} · ${real.a}` : '—';
-        const realWinner = real && real.winner ? (TEAMS[real.winner] || real.winner) : '—';
+        const realWinner = real && real.winner ? real.winner : '—';
+
+        // Helpers para mostrar con tooltip
+        const showTeam = (code) => code === '—' ? '—' : `<span title="${escapeHtml(getTeamName(code))}" style="cursor:help;">${escapeHtml(code)}</span>`;
 
         const acierto = real && real.winner && pred.winner && real.winner === pred.winner;
 
@@ -747,13 +764,13 @@ function renderQuinielaView(pid) {
           <div style="display:grid;grid-template-columns:1fr 1fr 60px;gap:10px;align-items:center;font-size:12px;">
             <div>
               <div style="color:var(--gold);font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;">Tu predicción</div>
-              <div>${predHome} <span style="color:var(--gold);font-family:'Bebas Neue';">${predScore}</span> ${predAway}</div>
-              <div style="font-size:10px;color:var(--muted);margin-top:2px;">🏆 ${predWinner}</div>
+              <div>${showTeam(predHome)} <span style="color:var(--gold);font-family:'Bebas Neue';">${predScore}</span> ${showTeam(predAway)}</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:2px;">🏆 ${showTeam(predWinner)}</div>
             </div>
             <div>
               <div style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;">Resultado real</div>
-              <div>${realHome} <span style="color:var(--white);font-family:'Bebas Neue';">${realScore}</span> ${realAway}</div>
-              <div style="font-size:10px;color:var(--muted);margin-top:2px;">🏆 ${realWinner}</div>
+              <div>${showTeam(realHome)} <span style="color:var(--white);font-family:'Bebas Neue';">${realScore}</span> ${showTeam(realAway)}</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:2px;">🏆 ${showTeam(realWinner)}</div>
             </div>
             <div style="text-align:center;">
               <span class="pts-chip${pts === 0 ? ' zero' : ''}" style="font-size:18px;padding:4px 12px;">${pts}</span>
@@ -870,13 +887,13 @@ function openEditQuiniela(pid) {
       const key = `G_${g}_${idx}`;
       const pred = (q.groups && q.groups[key]) || { h: '', a: '' };
       content += `<div class="match-predict">
-        <div class="team-home"><span>${getFlag(m[0])}</span> ${getShortName(m[0])}</div>
+        <div class="team-home">${getShortName(m[0])}</div>
         <div class="score-inputs">
           <input class="predict-input" type="number" min="0" max="9" maxlength="1" value="${pred.h !== '' && pred.h !== null && pred.h !== undefined ? pred.h : ''}" placeholder="-" id="q_${key}_h" oninput="if(this.value.length>1)this.value=this.value.slice(-1);" onfocus="this.select()">
           <span class="score-sep">:</span>
           <input class="predict-input" type="number" min="0" max="9" maxlength="1" value="${pred.a !== '' && pred.a !== null && pred.a !== undefined ? pred.a : ''}" placeholder="-" id="q_${key}_a" oninput="if(this.value.length>1)this.value=this.value.slice(-1);" onfocus="this.select()">
         </div>
-        <div class="team-away">${getShortName(m[1])} <span>${getFlag(m[1])}</span></div>
+        <div class="team-away">${getShortName(m[1])}</div>
       </div>`;
     });
     content += `</div></div>`;
@@ -1318,8 +1335,8 @@ function renderElimBracket() {
     const homeWinner = r.winner && r.winner === homeVal ? ' winner' : '';
     const awayWinner = r.winner && r.winner === awayVal ? ' winner' : '';
     const scoreStr = hasScore ? `${r.h}<span style="opacity:.5;margin:0 3px;">·</span>${r.a}` : '<span class="empty">vs</span>';
-    const homeDisplay = homeVal ? `<span class="name">${getFlag(homeVal)} ${escapeHtml(homeVal)}</span>` : `<span class="empty">—</span>`;
-    const awayDisplay = awayVal ? `<span class="name">${escapeHtml(awayVal)} ${getFlag(awayVal)}</span>` : `<span class="empty">—</span>`;
+    const homeDisplay = homeVal ? `<span class="name" title="${escapeHtml(getTeamName(homeVal))}">${escapeHtml(homeVal)}</span>` : `<span class="empty">—</span>`;
+    const awayDisplay = awayVal ? `<span class="name" title="${escapeHtml(getTeamName(awayVal))}">${escapeHtml(awayVal)}</span>` : `<span class="empty">—</span>`;
     return `<div class="bracket-mini-match${winnerClass}" onclick="openElimEditor('${roundId}',${idx})" title="Click para editar" style="cursor:${session.type==='admin' ? 'pointer' : 'default'};">
       <div class="bracket-mini-team${homeWinner}">${homeDisplay}</div>
       <div class="bracket-mini-score${hasScore?'':' empty'}">${scoreStr}</div>
