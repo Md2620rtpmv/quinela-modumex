@@ -594,13 +594,13 @@ function renderQuinielaView(pid) {
   let html = `<div class="groups-grid">`;
   Object.keys(GROUPS).forEach(g => {
     html += `<div class="group-card"><div class="group-header ${g}">Grupo ${g}</div>`;
-    // Encabezado de columnas
-    html += `<div style="display:grid;grid-template-columns:minmax(60px,1fr) 56px 56px 32px minmax(60px,1fr);align-items:center;gap:6px;padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.02);">
+    // Encabezado de columnas: LOCAL - TU PRED - VISIT - REAL - PTS
+    html += `<div style="display:grid;grid-template-columns:minmax(56px,1fr) 56px minmax(56px,1fr) 56px 32px;align-items:center;gap:6px;padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.02);">
       <div style="font-family:'Barlow Condensed';font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;text-align:right;">Local</div>
       <div style="font-family:'Barlow Condensed';font-size:9px;color:var(--gold);text-transform:uppercase;letter-spacing:1px;text-align:center;">Tu pred.</div>
+      <div style="font-family:'Barlow Condensed';font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;text-align:left;">Visit.</div>
       <div style="font-family:'Barlow Condensed';font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;text-align:center;">Real</div>
       <div style="font-family:'Barlow Condensed';font-size:9px;color:var(--green);text-transform:uppercase;letter-spacing:1px;text-align:center;">Pts</div>
-      <div style="font-family:'Barlow Condensed';font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;text-align:left;">Visit.</div>
     </div>`;
     GROUPS[g].forEach((m, i) => {
       const key = `G_${g}_${i}`;
@@ -613,16 +613,16 @@ function renderQuinielaView(pid) {
       const pa = hasPred && pred.a !== '' && pred.a !== null && pred.a !== undefined ? pred.a : '–';
       const rh = hasReal ? real.h : '–';
       const ra = hasReal && real.a !== '' && real.a !== null && real.a !== undefined ? real.a : '–';
-      html += `<div style="display:grid;grid-template-columns:minmax(60px,1fr) 56px 56px 32px minmax(60px,1fr);align-items:center;gap:6px;padding:7px 10px;border-bottom:1px solid rgba(255,255,255,.03);">
+      html += `<div style="display:grid;grid-template-columns:minmax(56px,1fr) 56px minmax(56px,1fr) 56px 32px;align-items:center;gap:6px;padding:7px 10px;border-bottom:1px solid rgba(255,255,255,.03);">
         <div style="font-size:12px;text-align:right;font-weight:500;">${getFlag(m[0])} ${getShortName(m[0])}</div>
         <div style="text-align:center;font-family:'Bebas Neue';font-size:16px;color:${hasPred?'var(--gold)':'var(--muted)'};letter-spacing:1px;">
           <span>${ph}</span><span style="opacity:.5;margin:0 2px;">·</span><span>${pa}</span>
         </div>
+        <div style="font-size:12px;text-align:left;font-weight:500;">${getShortName(m[1])} ${getFlag(m[1])}</div>
         <div style="text-align:center;font-family:'Bebas Neue';font-size:16px;color:${hasReal?'var(--white)':'var(--muted)'};letter-spacing:1px;">
           <span>${rh}</span><span style="opacity:.5;margin:0 2px;">·</span><span>${ra}</span>
         </div>
         <div style="text-align:center;"><span class="pts-chip${pts === 0 ? ' zero' : ''}">${pts}</span></div>
-        <div style="font-size:12px;text-align:left;font-weight:500;">${getShortName(m[1])} ${getFlag(m[1])}</div>
       </div>`;
     });
     html += `</div>`;
