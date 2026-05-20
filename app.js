@@ -85,8 +85,16 @@ const ADMIN_USER = 'admin';
 const ADMIN_PASS = 'modumex2026'; // ← CAMBIAR antes de producción
 const ADMIN_PAGES = ['quinielas','participantes','admin'];
 
+// ═══════════════════════════════════════════
+// ELIMINATORIA: fecha de desbloqueo automático
+// ═══════════════════════════════════════════
+// 28 de junio de 2026, 00:00 hora de México (UTC-6)
+// La fase de grupos del Mundial 2026 termina el 27 de junio
+const ELIM_UNLOCK_DATE = new Date('2026-06-28T06:00:00Z'); // 00:00 CST = 06:00 UTC
+
 let session = { type: null, pid: null, nombre: null }; // type: 'admin' | 'empleado' | null
 let _pendingPage = null;
+let elimCountdownInterval = null;
 
 // ═══════════════════════════════════════════
 // STATE en memoria (mirror de Firestore)
@@ -97,7 +105,8 @@ let state = {
   participants: [],         // [{id, nombre, area, pago, codigo}]
   results: {},              // {G_A_0: {h:1,a:0}, ...}
   elimResults: {},          // {r32_0: {home,away,h,a,winner}, ...}
-  quinielas: {}             // {pid: {groups: {G_A_0:{h,a}}, elim: {r32_0:{winner}}}}
+  quinielas: {},            // {pid: {groups: {G_A_0:{h,a}}, elim: {r32_0:{winner}}}}
+  elimOverride: false       // si true, admin desbloqueó manualmente la elim
 };
 
 let unsubscribers = [];
@@ -222,7 +231,20 @@ function attachListeners() {
     err => console.error('Error en pts:', err)
   );
 
-  unsubscribers = [unsubP, unsubQ, unsubR, unsubE, unsubC, unsubPts];
+  // 7) Control de eliminatoria (override manual del admin)
+  const unsubElim = onSnapshot(doc(db, 'config', 'elim'),
+    snapshot => {
+      if (snapshot.exists()) {
+        state.elimOverride = !!snapshot.data().override;
+      } else {
+        state.elimOverride = false;
+      }
+      onDataChange('elim-override');
+    },
+    err => console.error('Error en elim config:', err)
+  );
+
+  unsubscribers = [unsubP, unsubQ, unsubR, unsubE, unsubC, unsubPts, unsubElim];
 
   // Marcar conectado tras el primer snapshot
   setTimeout(() => {
@@ -895,9 +917,73 @@ function openPozoCalc() {
 }
 
 // ═══════════════════════════════════════════
+// ELIMINATORIA: LÓGICA DE BLOQUEO
+// ═══════════════════════════════════════════
+function isElimUnlocked() {
+  // Desbloqueada si:
+  // 1) El admin la abrió manualmente, O
+  // 2) La fecha actual >= fecha de desbloqueo
+  if (state.elimOverride === true) return true;
+  return new Date() >= ELIM_UNLOCK_DATE;
+}
+
+function updateElimCountdown() {
+  const now = new Date();
+  const diff = ELIM_UNLOCK_DATE - now;
+  if (diff <= 0) {
+    // Ya pasó la fecha, re-render para mostrar el bracket
+    if (elimCountdownInterval) { clearInterval(elimCountdownInterval); elimCountdownInterval = null; }
+    const activePage = document.querySelector('.page.active');
+    if (activePage && activePage.id === 'page-eliminatoria') renderEliminatoria();
+    return;
+  }
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+  const mins = Math.floor((diff / (1000 * 60)) % 60);
+  const dEl = $('cd-days'), hEl = $('cd-hours'), mEl = $('cd-mins');
+  if (dEl) dEl.textContent = String(days).padStart(2,'0');
+  if (hEl) hEl.textContent = String(hours).padStart(2,'0');
+  if (mEl) mEl.textContent = String(mins).padStart(2,'0');
+}
+
+async function toggleElimLock(unlock) {
+  if (session.type !== 'admin') return;
+  try {
+    await setDoc(doc(db, 'config', 'elim'), { override: unlock }, { merge: true });
+    showToast(unlock ? '🔓 Eliminatoria desbloqueada manualmente' : '🔒 Eliminatoria en modo automático', 'success');
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+  }
+}
+
+// ═══════════════════════════════════════════
 // RENDER: ELIMINATORIA
 // ═══════════════════════════════════════════
 function renderEliminatoria() {
+  const lockedEl = $('elim-locked');
+  const unlockedEl = $('elim-unlocked');
+  const unlocked = isElimUnlocked();
+
+  if (!unlocked) {
+    // Mostrar bloqueo
+    if (lockedEl) lockedEl.style.display = 'block';
+    if (unlockedEl) unlockedEl.style.display = 'none';
+    // Mostrar hint para admin si aplica
+    const adminHint = $('elim-admin-hint');
+    if (adminHint) adminHint.style.display = session.type === 'admin' ? 'block' : 'none';
+    // Iniciar countdown si no estaba corriendo
+    updateElimCountdown();
+    if (!elimCountdownInterval) {
+      elimCountdownInterval = setInterval(updateElimCountdown, 30000); // cada 30s
+    }
+    return;
+  }
+
+  // Desbloqueada: mostrar bracket
+  if (lockedEl) lockedEl.style.display = 'none';
+  if (unlockedEl) unlockedEl.style.display = 'block';
+  if (elimCountdownInterval) { clearInterval(elimCountdownInterval); elimCountdownInterval = null; }
+
   let html = '';
   ELIM_ROUNDS.forEach(round => {
     html += `<div class="bracket-section">
@@ -941,6 +1027,10 @@ function renderEliminatoria() {
 
 async function saveElimResult(key) {
   if (session.type !== 'admin') return;
+  if (!isElimUnlocked()) {
+    showToast('🔒 La eliminatoria está bloqueada. Desbloquéala en Admin.', 'warn', 4000);
+    return;
+  }
   const home = $('em_' + key + '_home').value.trim();
   const away = $('em_' + key + '_away').value.trim();
   const hRaw = $('em_' + key + '_h').value;
@@ -984,7 +1074,6 @@ function renderAdmin() {
 
   const fbStatus = $('firebase-status');
   if (fbStatus) {
-    const totalDocs = state.participants.length + Object.keys(state.quinielas).length;
     fbStatus.innerHTML = `
       <div style="display:flex;flex-wrap:wrap;gap:10px;">
         <span class="badge ${isConnected ? 'badge-green' : 'badge-red'}">${isConnected ? '🟢 Conectado' : '🔴 Sin conexión'}</span>
@@ -992,6 +1081,34 @@ function renderAdmin() {
         <span class="badge badge-muted">📝 ${Object.keys(state.quinielas).length} quinielas</span>
         <span class="badge badge-muted">⚽ ${Object.keys(state.results).length} resultados</span>
       </div>`;
+  }
+
+  // Estado del control de eliminatoria
+  const elimCtrl = $('elim-control-status');
+  if (elimCtrl) {
+    const dateReached = new Date() >= ELIM_UNLOCK_DATE;
+    const isOverride = state.elimOverride === true;
+    const unlocked = isElimUnlocked();
+    let statusBadge, statusDetail;
+    if (isOverride) {
+      statusBadge = '<span class="badge badge-gold">🔓 DESBLOQUEADA MANUALMENTE</span>';
+      statusDetail = 'Tú activaste el modo manual. La pestaña Eliminatoria está abierta para todos.';
+    } else if (dateReached) {
+      statusBadge = '<span class="badge badge-green">🔓 DESBLOQUEADA (auto)</span>';
+      statusDetail = 'La fecha del 28 de junio ya pasó. La eliminatoria está abierta automáticamente.';
+    } else {
+      statusBadge = '<span class="badge badge-muted">🔒 BLOQUEADA (auto)</span>';
+      const diff = ELIM_UNLOCK_DATE - new Date();
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      statusDetail = `Faltan ~${days} días para el desbloqueo automático (28 de junio 2026).`;
+    }
+    elimCtrl.innerHTML = `<div style="margin-bottom:8px;">${statusBadge}</div><p style="color:var(--muted);">${statusDetail}</p>`;
+
+    // Habilitar/deshabilitar botones
+    const btnUnlock = $('btn-elim-unlock');
+    const btnRelock = $('btn-elim-relock');
+    if (btnUnlock) btnUnlock.disabled = isOverride;
+    if (btnRelock) btnRelock.disabled = !isOverride;
   }
 }
 
@@ -1090,6 +1207,7 @@ window.deleteParticipant = deleteParticipant;
 window.openPozoCalc = openPozoCalc;
 window.copyCodigoModal = copyCodigoModal;
 window.saveElimResult = saveElimResult;
+window.toggleElimLock = toggleElimLock;
 window.saveConfig = saveConfig;
 window.savePts = savePts;
 window.resetAll = resetAll;
