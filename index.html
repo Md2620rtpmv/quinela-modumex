@@ -174,6 +174,85 @@ label{font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase
 .bracket-winner-row{margin-top:10px;display:flex;align-items:center;gap:8px;}
 .bracket-winner-select{font-size:12px;padding:6px 10px;flex:1;}
 
+/* BRACKET FIFA STYLE */
+.bracket-layout{
+  display:grid;
+  grid-template-columns:1fr 60px 1fr;
+  gap:14px;
+  margin-top:8px;
+}
+.bracket-side{display:flex;flex-direction:column;gap:8px;}
+.bracket-center{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:14px;
+  color:var(--muted);
+  font-family:'Bebas Neue';
+  letter-spacing:2px;
+  text-align:center;
+}
+.bracket-center-title{font-size:13px;color:var(--gold);writing-mode:vertical-rl;transform:rotate(180deg);letter-spacing:4px;opacity:.7;}
+.bracket-trophy{font-size:40px;opacity:.4;}
+.bracket-r16-list{display:flex;flex-direction:column;gap:6px;}
+.bracket-round-label{
+  font-family:'Barlow Condensed';
+  font-size:10px;
+  letter-spacing:2px;
+  color:var(--muted);
+  text-transform:uppercase;
+  margin-bottom:6px;
+  padding:4px 0;
+  border-bottom:1px solid rgba(255,255,255,.06);
+}
+.bracket-mini-match{
+  background:var(--dark3);
+  border:1px solid rgba(255,255,255,.06);
+  border-radius:8px;
+  padding:8px 10px;
+  display:grid;
+  grid-template-columns:1fr auto 1fr;
+  align-items:center;
+  gap:6px;
+  font-size:11px;
+  transition:border-color .2s;
+}
+.bracket-mini-match:hover{border-color:rgba(0,166,81,.3);}
+.bracket-mini-match.has-winner{border-color:rgba(0,166,81,.3);background:rgba(0,166,81,.05);}
+.bracket-mini-team{display:flex;align-items:center;gap:5px;font-weight:500;}
+.bracket-mini-team.right{justify-content:flex-end;text-align:right;}
+.bracket-mini-team .name{font-family:'Bebas Neue';font-size:12px;letter-spacing:1px;}
+.bracket-mini-team .empty{color:var(--muted);opacity:.4;font-style:italic;}
+.bracket-mini-team.winner .name{color:var(--green);}
+.bracket-mini-score{
+  font-family:'Bebas Neue';
+  font-size:14px;
+  color:var(--gold);
+  letter-spacing:1px;
+  min-width:38px;
+  text-align:center;
+}
+.bracket-mini-score.empty{color:var(--muted);opacity:.4;}
+.bracket-round-block{
+  margin-bottom:18px;
+}
+.bracket-round-title-fifa{
+  font-family:'Barlow Condensed';
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:2px;
+  text-transform:uppercase;
+  color:var(--gold);
+  text-align:center;
+  margin-bottom:8px;
+}
+@media(max-width:780px){
+  .bracket-layout{grid-template-columns:1fr;gap:8px;}
+  .bracket-center{display:none;}
+  .bracket-side+.bracket-side{margin-top:24px;}
+}
+
 /* RESPONSIVE */
 @media(max-width:600px){
   .form-row{grid-template-columns:1fr;}
@@ -500,6 +579,15 @@ input[type=password]{letter-spacing:2px;}
   <div id="elim-unlocked">
     <div class="read-only-banner" id="elim-readonly-banner">🔒 Modo lectura — <a href="#" onclick="openLogin();return false;" style="color:var(--gold);margin-left:4px;">Inicia sesión como Admin</a> para capturar resultados</div>
     <div class="alert alert-info" id="elim-edit-hint" style="display:none;">💡 Escribe los nombres de los equipos y el marcador. Selecciona el ganador para asignar puntos.</div>
+
+    <!-- Toggle vista -->
+    <div style="display:flex;gap:8px;margin-bottom:20px;justify-content:flex-end;flex-wrap:wrap;">
+      <div style="display:inline-flex;background:var(--dark3);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:3px;">
+        <button class="btn btn-sm" id="elim-view-bracket-btn" onclick="setElimView('bracket')" style="background:var(--green);color:#fff;border-radius:6px;">🌳 Bracket</button>
+        <button class="btn btn-sm" id="elim-view-list-btn" onclick="setElimView('list')" style="background:transparent;color:var(--muted);border-radius:6px;">📋 Lista</button>
+      </div>
+    </div>
+
     <div id="bracket-content"></div>
   </div>
 </div>
@@ -615,6 +703,49 @@ input[type=password]{letter-spacing:2px;}
       <em>"Hola [nombre]! Aquí está tu acceso a la quiniela del Mundial: <span id="codigo-modal-url"></span> — Tu código es: <strong id="codigo-modal-code-text"></strong>"</em>
     </div>
     <button class="btn btn-green" style="width:100%;" onclick="closeModal('modal-codigo')">Listo</button>
+  </div>
+</div>
+
+<!-- MODAL EDITAR PARTIDO ELIMINATORIO (vista bracket) -->
+<div class="modal-overlay" id="modal-elim-edit">
+  <div class="modal" style="max-width:460px;">
+    <button class="modal-close" onclick="closeModal('modal-elim-edit')">✕</button>
+    <div class="modal-title" id="elim-edit-title">EDITAR PARTIDO</div>
+    <div class="modal-sub" id="elim-edit-sub">Captura los equipos, marcador y ganador</div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Equipo local</label>
+        <input type="text" id="elim-edit-home" placeholder="Ej. MEX" onchange="rebuildElimEditWinnerOptions()">
+      </div>
+      <div class="form-group">
+        <label>Equipo visitante</label>
+        <input type="text" id="elim-edit-away" placeholder="Ej. FRA" onchange="rebuildElimEditWinnerOptions()">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Goles local</label>
+        <input type="number" min="0" max="20" id="elim-edit-h" placeholder="-">
+      </div>
+      <div class="form-group">
+        <label>Goles visitante</label>
+        <input type="number" min="0" max="20" id="elim-edit-a" placeholder="-">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>🏆 Ganador (clasifica)</label>
+      <select id="elim-edit-winner">
+        <option value="">— Sin definir —</option>
+      </select>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:20px;">
+      <button class="btn btn-green" onclick="saveElimEditor()">💾 Guardar</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-elim-edit')">Cancelar</button>
+    </div>
   </div>
 </div>
 
