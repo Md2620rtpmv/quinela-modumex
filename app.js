@@ -984,6 +984,29 @@ function renderEliminatoria() {
   if (unlockedEl) unlockedEl.style.display = 'block';
   if (elimCountdownInterval) { clearInterval(elimCountdownInterval); elimCountdownInterval = null; }
 
+  // Actualizar UI del toggle
+  const currentView = getElimView();
+  const btnB = $('elim-view-bracket-btn');
+  const btnL = $('elim-view-list-btn');
+  if (btnB && btnL) {
+    if (currentView === 'bracket') {
+      btnB.style.background = 'var(--green)'; btnB.style.color = '#fff';
+      btnL.style.background = 'transparent'; btnL.style.color = 'var(--muted)';
+    } else {
+      btnB.style.background = 'transparent'; btnB.style.color = 'var(--muted)';
+      btnL.style.background = 'var(--green)'; btnL.style.color = '#fff';
+    }
+  }
+
+  if (currentView === 'bracket') {
+    renderElimBracket();
+  } else {
+    renderElimList();
+  }
+}
+
+// ---------- Vista LISTA (la que ya teníamos) ----------
+function renderElimList() {
   let html = '';
   ELIM_ROUNDS.forEach(round => {
     html += `<div class="bracket-section">
@@ -994,11 +1017,9 @@ function renderEliminatoria() {
       const r = state.elimResults[key] || { home: '', away: '', h: '', a: '', winner: '' };
       const homeVal = r.home || '';
       const awayVal = r.away || '';
-      // Opciones para el select de ganador
       let options = '<option value="">— Sin definir —</option>';
       if (homeVal) options += `<option value="${escapeHtml(homeVal)}"${r.winner === homeVal ? ' selected' : ''}>🏆 ${escapeHtml(homeVal)}</option>`;
       if (awayVal && awayVal !== homeVal) options += `<option value="${escapeHtml(awayVal)}"${r.winner === awayVal ? ' selected' : ''}>🏆 ${escapeHtml(awayVal)}</option>`;
-      // Si el winner está pero no coincide con home/away (caso raro), incluirlo
       if (r.winner && r.winner !== homeVal && r.winner !== awayVal) {
         options += `<option value="${escapeHtml(r.winner)}" selected>🏆 ${escapeHtml(r.winner)}</option>`;
       }
@@ -1023,6 +1044,195 @@ function renderEliminatoria() {
     html += `</div></div>`;
   });
   $('bracket-content').innerHTML = html;
+}
+
+// ---------- Vista BRACKET (estilo FIFA) ----------
+function getElimView() {
+  try {
+    const v = localStorage.getItem('quiniela_elim_view');
+    return v === 'list' ? 'list' : 'bracket'; // default: bracket
+  } catch(e) { return 'bracket'; }
+}
+
+function setElimView(view) {
+  try { localStorage.setItem('quiniela_elim_view', view); } catch(e){}
+  renderEliminatoria();
+}
+
+function renderElimBracket() {
+  // Helper para renderizar una "mini-card" de un partido de cualquier ronda
+  // El bracket FIFA tiene 16 partidos de 16vos: 8 en cada lado.
+  // Dividimos por mitades: izquierda = partidos 0-7, derecha = partidos 8-15
+  function miniMatch(roundId, idx, side) {
+    const key = `${roundId}_${idx}`;
+    const r = state.elimResults[key] || { home: '', away: '', h: '', a: '', winner: '' };
+    const homeVal = r.home || '';
+    const awayVal = r.away || '';
+    const hasScore = (r.h !== '' && r.h !== null && r.h !== undefined && r.a !== '' && r.a !== null && r.a !== undefined);
+    const winnerClass = r.winner ? ' has-winner' : '';
+    const homeWinner = r.winner && r.winner === homeVal ? ' winner' : '';
+    const awayWinner = r.winner && r.winner === awayVal ? ' winner' : '';
+    const scoreStr = hasScore ? `${r.h}<span style="opacity:.5;margin:0 3px;">·</span>${r.a}` : '<span class="empty">vs</span>';
+    const homeDisplay = homeVal ? `<span class="name">${escapeHtml(homeVal)}</span>` : `<span class="empty">—</span>`;
+    const awayDisplay = awayVal ? `<span class="name">${escapeHtml(awayVal)}</span>` : `<span class="empty">—</span>`;
+    return `<div class="bracket-mini-match${winnerClass}" onclick="openElimEditor('${roundId}',${idx})" title="Click para editar" style="cursor:${session.type==='admin' ? 'pointer' : 'default'};">
+      <div class="bracket-mini-team${homeWinner}">${homeDisplay}</div>
+      <div class="bracket-mini-score${hasScore?'':' empty'}">${scoreStr}</div>
+      <div class="bracket-mini-team right${awayWinner}">${awayDisplay}</div>
+    </div>`;
+  }
+
+  // Renderiza una ronda completa para un lado dado (left / right)
+  function renderRoundSide(roundId, label, side) {
+    const round = ELIM_ROUNDS.find(r => r.id === roundId);
+    if (!round) return '';
+    const totalMatches = round.matches;
+    const halfMatches = Math.floor(totalMatches / 2);
+    let startIdx, endIdx;
+    if (totalMatches === 1) {
+      // Final o 3er lugar: una sola, va al centro pero aquí dejamos vacío en lados
+      return '';
+    }
+    if (side === 'left') { startIdx = 0; endIdx = halfMatches; }
+    else { startIdx = halfMatches; endIdx = totalMatches; }
+    let html = `<div class="bracket-round-block">
+      <div class="bracket-round-title-fifa">${label} (${state.pts['elim_'+roundId]||0} pts)</div>
+      <div class="bracket-r16-list">`;
+    for (let i = startIdx; i < endIdx; i++) {
+      html += miniMatch(roundId, i, side);
+    }
+    html += `</div></div>`;
+    return html;
+  }
+
+  // Renderiza Final + 3er lugar en el centro
+  function renderCenterMatches() {
+    const finRound = ELIM_ROUNDS.find(r => r.id === 'fin');
+    const thirdRound = ELIM_ROUNDS.find(r => r.id === '3rd');
+    let html = '';
+    if (finRound) {
+      html += `<div class="bracket-round-block" style="width:100%;max-width:240px;">
+        <div class="bracket-round-title-fifa" style="color:var(--gold);">🏆 FINAL (${state.pts['elim_fin']||0} pts)</div>`;
+      html += miniMatch('fin', 0, 'center');
+      html += `</div>`;
+    }
+    if (thirdRound) {
+      html += `<div class="bracket-round-block" style="width:100%;max-width:240px;margin-top:20px;">
+        <div class="bracket-round-title-fifa" style="color:#cd7f32;">🥉 TERCER LUGAR (${state.pts['elim_3rd']||0} pts)</div>`;
+      html += miniMatch('3rd', 0, 'center');
+      html += `</div>`;
+    }
+    return html;
+  }
+
+  // Construir layout principal
+  let html = `<div class="bracket-layout">
+
+    <!-- LADO IZQUIERDO -->
+    <div class="bracket-side">
+      ${renderRoundSide('r32', 'Dieciseisavos', 'left')}
+      ${renderRoundSide('r16', 'Octavos', 'left')}
+      ${renderRoundSide('qf', 'Cuartos', 'left')}
+      ${renderRoundSide('sf', 'Semifinal', 'left')}
+    </div>
+
+    <!-- CENTRO -->
+    <div class="bracket-center">
+      <div class="bracket-trophy">🏆</div>
+      <div class="bracket-center-title">WORLD CHAMPIONS</div>
+      ${renderCenterMatches()}
+      <div class="bracket-trophy" style="opacity:.2;">🥉</div>
+    </div>
+
+    <!-- LADO DERECHO -->
+    <div class="bracket-side">
+      ${renderRoundSide('r32', 'Dieciseisavos', 'right')}
+      ${renderRoundSide('r16', 'Octavos', 'right')}
+      ${renderRoundSide('qf', 'Cuartos', 'right')}
+      ${renderRoundSide('sf', 'Semifinal', 'right')}
+    </div>
+
+  </div>`;
+
+  // Si admin, mostrar instrucción
+  if (session.type === 'admin') {
+    html = `<div class="alert alert-info" style="margin-bottom:16px;">💡 Haz click en cualquier partido del bracket para editarlo en un modal. O cambia a vista <strong>Lista</strong> para ver todos los inputs juntos.</div>` + html;
+  }
+
+  $('bracket-content').innerHTML = html;
+}
+
+// ---------- Editor modal para vista bracket ----------
+let currentElimEdit = null;
+
+function openElimEditor(roundId, idx) {
+  if (session.type !== 'admin') return;
+  if (!isElimUnlocked()) {
+    showToast('🔒 La eliminatoria está bloqueada', 'warn');
+    return;
+  }
+  currentElimEdit = { roundId, idx };
+  const key = `${roundId}_${idx}`;
+  const r = state.elimResults[key] || { home: '', away: '', h: '', a: '', winner: '' };
+  const round = ELIM_ROUNDS.find(rr => rr.id === roundId);
+  const roundLabel = round ? round.label : '';
+  const pts = state.pts['elim_' + roundId] || 0;
+
+  $('elim-edit-title').textContent = `${roundLabel} · Partido ${idx + 1}`;
+  $('elim-edit-sub').textContent = `Vale ${pts} puntos al ganador`;
+  $('elim-edit-home').value = r.home || '';
+  $('elim-edit-away').value = r.away || '';
+  $('elim-edit-h').value = r.h !== '' && r.h !== null && r.h !== undefined ? r.h : '';
+  $('elim-edit-a').value = r.a !== '' && r.a !== null && r.a !== undefined ? r.a : '';
+
+  // Refrescar opciones del select de ganador
+  rebuildElimEditWinnerOptions();
+
+  openModal('modal-elim-edit');
+}
+
+function rebuildElimEditWinnerOptions() {
+  const home = $('elim-edit-home').value.trim();
+  const away = $('elim-edit-away').value.trim();
+  if (!currentElimEdit) return;
+  const key = `${currentElimEdit.roundId}_${currentElimEdit.idx}`;
+  const r = state.elimResults[key] || {};
+  const currentWinner = $('elim-edit-winner').value || r.winner || '';
+  let options = '<option value="">— Sin definir —</option>';
+  if (home) options += `<option value="${escapeHtml(home)}"${currentWinner === home ? ' selected' : ''}>🏆 ${escapeHtml(home)}</option>`;
+  if (away && away !== home) options += `<option value="${escapeHtml(away)}"${currentWinner === away ? ' selected' : ''}>🏆 ${escapeHtml(away)}</option>`;
+  if (currentWinner && currentWinner !== home && currentWinner !== away) {
+    options += `<option value="${escapeHtml(currentWinner)}" selected>🏆 ${escapeHtml(currentWinner)}</option>`;
+  }
+  $('elim-edit-winner').innerHTML = options;
+}
+
+async function saveElimEditor() {
+  if (!currentElimEdit) return;
+  if (session.type !== 'admin') return;
+  if (!isElimUnlocked()) { showToast('🔒 Bloqueada', 'warn'); return; }
+  const key = `${currentElimEdit.roundId}_${currentElimEdit.idx}`;
+  const home = $('elim-edit-home').value.trim();
+  const away = $('elim-edit-away').value.trim();
+  const hRaw = $('elim-edit-h').value;
+  const aRaw = $('elim-edit-a').value;
+  const winner = $('elim-edit-winner').value.trim();
+  const h = hRaw === '' ? '' : parseInt(hRaw);
+  const a = aRaw === '' ? '' : parseInt(aRaw);
+
+  try {
+    const ref = doc(db, 'elimResults', 'all');
+    if (!home && !away && h === '' && a === '' && !winner) {
+      await setDoc(ref, { matches: { [key]: deleteField() } }, { merge: true });
+    } else {
+      await setDoc(ref, { matches: { [key]: { home, away, h, a, winner } } }, { merge: true });
+    }
+    closeModal('modal-elim-edit');
+    showToast('✅ Guardado', 'success');
+    flash();
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+  }
 }
 
 async function saveElimResult(key) {
@@ -1208,6 +1418,10 @@ window.openPozoCalc = openPozoCalc;
 window.copyCodigoModal = copyCodigoModal;
 window.saveElimResult = saveElimResult;
 window.toggleElimLock = toggleElimLock;
+window.setElimView = setElimView;
+window.openElimEditor = openElimEditor;
+window.saveElimEditor = saveElimEditor;
+window.rebuildElimEditWinnerOptions = rebuildElimEditWinnerOptions;
 window.saveConfig = saveConfig;
 window.savePts = savePts;
 window.resetAll = resetAll;
