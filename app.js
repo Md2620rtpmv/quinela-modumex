@@ -161,6 +161,27 @@ function genCodigo(nombre) {
   return base + '-' + suffix;
 }
 
+// Helper: genera las <option> de los 48 equipos del Mundial, ordenadas alfabéticamente
+// selectedCode: código del equipo a marcar como seleccionado (opcional)
+// placeholder: texto del option vacío (default "— Selecciona equipo —")
+function getTeamOptions(selectedCode = '', placeholder = '— Selecciona equipo —') {
+  const codes = Object.keys(TEAMS).sort((a, b) => {
+    const na = TEAMS[a].split(' ').slice(1).join(' ');
+    const nb = TEAMS[b].split(' ').slice(1).join(' ');
+    return na.localeCompare(nb);
+  });
+  let html = `<option value="">${placeholder}</option>`;
+  codes.forEach(c => {
+    const sel = (c === selectedCode) ? ' selected' : '';
+    html += `<option value="${c}"${sel}>${TEAMS[c]}</option>`;
+  });
+  // Si el código seleccionado no está en la lista (caso edge: equipo custom), añadirlo
+  if (selectedCode && !codes.includes(selectedCode)) {
+    html += `<option value="${selectedCode}" selected>${selectedCode}</option>`;
+  }
+  return html;
+}
+
 // ═══════════════════════════════════════════
 // FIRESTORE: LISTENERS EN TIEMPO REAL
 // ═══════════════════════════════════════════
@@ -1240,27 +1261,28 @@ function renderElimList() {
       const r = state.elimResults[key] || { home: '', away: '', h: '', a: '', winner: '' };
       const homeVal = r.home || '';
       const awayVal = r.away || '';
-      let options = '<option value="">— Sin definir —</option>';
-      if (homeVal) options += `<option value="${escapeHtml(homeVal)}"${r.winner === homeVal ? ' selected' : ''}>🏆 ${escapeHtml(homeVal)}</option>`;
-      if (awayVal && awayVal !== homeVal) options += `<option value="${escapeHtml(awayVal)}"${r.winner === awayVal ? ' selected' : ''}>🏆 ${escapeHtml(awayVal)}</option>`;
+      // Opciones del select de ganador (solo home y away)
+      let winnerOpts = '<option value="">— Sin definir —</option>';
+      if (homeVal) winnerOpts += `<option value="${escapeHtml(homeVal)}"${r.winner === homeVal ? ' selected' : ''}>🏆 ${escapeHtml(TEAMS[homeVal] || homeVal)}</option>`;
+      if (awayVal && awayVal !== homeVal) winnerOpts += `<option value="${escapeHtml(awayVal)}"${r.winner === awayVal ? ' selected' : ''}>🏆 ${escapeHtml(TEAMS[awayVal] || awayVal)}</option>`;
       if (r.winner && r.winner !== homeVal && r.winner !== awayVal) {
-        options += `<option value="${escapeHtml(r.winner)}" selected>🏆 ${escapeHtml(r.winner)}</option>`;
+        winnerOpts += `<option value="${escapeHtml(r.winner)}" selected>🏆 ${escapeHtml(TEAMS[r.winner] || r.winner)}</option>`;
       }
       html += `<div class="bracket-match">
         <div class="bracket-match-num">Partido ${i + 1}</div>
-        <div class="bracket-teams-row">
-          <input class="bracket-team-input" placeholder="Equipo A" value="${escapeHtml(homeVal)}" id="em_${key}_home" onchange="saveElimResult('${key}')">
-          <div style="text-align:center;color:var(--muted);font-size:12px;">vs</div>
-          <input class="bracket-team-input" placeholder="Equipo B" value="${escapeHtml(awayVal)}" id="em_${key}_away" onchange="saveElimResult('${key}')">
+        <div class="bracket-teams-row" style="grid-template-columns:1fr;gap:8px;">
+          <select class="bracket-team-input" id="em_${key}_home" onchange="onElimTeamChange('${key}')" style="text-align:center;">${getTeamOptions(homeVal, '— Equipo local —')}</select>
+          <div style="text-align:center;color:var(--muted);font-size:11px;font-weight:600;letter-spacing:2px;">VS</div>
+          <select class="bracket-team-input" id="em_${key}_away" onchange="onElimTeamChange('${key}')" style="text-align:center;">${getTeamOptions(awayVal, '— Equipo visitante —')}</select>
         </div>
         <div class="bracket-scores-row">
-          <input class="bracket-score-box" type="number" min="0" placeholder="-" value="${r.h !== '' && r.h !== null && r.h !== undefined ? r.h : ''}" id="em_${key}_h" onchange="saveElimResult('${key}')">
+          <input class="bracket-score-box" type="number" min="0" max="9" placeholder="-" value="${r.h !== '' && r.h !== null && r.h !== undefined ? r.h : ''}" id="em_${key}_h" onchange="saveElimResult('${key}')" oninput="if(this.value.length>1)this.value=this.value.slice(-1);" onfocus="this.select()">
           <span class="score-sep">:</span>
-          <input class="bracket-score-box" type="number" min="0" placeholder="-" value="${r.a !== '' && r.a !== null && r.a !== undefined ? r.a : ''}" id="em_${key}_a" onchange="saveElimResult('${key}')">
+          <input class="bracket-score-box" type="number" min="0" max="9" placeholder="-" value="${r.a !== '' && r.a !== null && r.a !== undefined ? r.a : ''}" id="em_${key}_a" onchange="saveElimResult('${key}')" oninput="if(this.value.length>1)this.value=this.value.slice(-1);" onfocus="this.select()">
         </div>
         <div class="bracket-winner-row">
           <label style="margin-bottom:0;font-size:10px;">Ganador:</label>
-          <select class="bracket-winner-select" id="em_${key}_winner" onchange="saveElimResult('${key}')">${options}</select>
+          <select class="bracket-winner-select" id="em_${key}_winner" onchange="saveElimResult('${key}')">${winnerOpts}</select>
         </div>
       </div>`;
     }
@@ -1296,8 +1318,8 @@ function renderElimBracket() {
     const homeWinner = r.winner && r.winner === homeVal ? ' winner' : '';
     const awayWinner = r.winner && r.winner === awayVal ? ' winner' : '';
     const scoreStr = hasScore ? `${r.h}<span style="opacity:.5;margin:0 3px;">·</span>${r.a}` : '<span class="empty">vs</span>';
-    const homeDisplay = homeVal ? `<span class="name">${escapeHtml(homeVal)}</span>` : `<span class="empty">—</span>`;
-    const awayDisplay = awayVal ? `<span class="name">${escapeHtml(awayVal)}</span>` : `<span class="empty">—</span>`;
+    const homeDisplay = homeVal ? `<span class="name">${getFlag(homeVal)} ${escapeHtml(homeVal)}</span>` : `<span class="empty">—</span>`;
+    const awayDisplay = awayVal ? `<span class="name">${escapeHtml(awayVal)} ${getFlag(awayVal)}</span>` : `<span class="empty">—</span>`;
     return `<div class="bracket-mini-match${winnerClass}" onclick="openElimEditor('${roundId}',${idx})" title="Click para editar" style="cursor:${session.type==='admin' ? 'pointer' : 'default'};">
       <div class="bracket-mini-team${homeWinner}">${homeDisplay}</div>
       <div class="bracket-mini-score${hasScore?'':' empty'}">${scoreStr}</div>
@@ -1403,8 +1425,10 @@ function openElimEditor(roundId, idx) {
 
   $('elim-edit-title').textContent = `${roundLabel} · Partido ${idx + 1}`;
   $('elim-edit-sub').textContent = `Vale ${pts} puntos al ganador`;
-  $('elim-edit-home').value = r.home || '';
-  $('elim-edit-away').value = r.away || '';
+
+  // Poblar selects de equipos
+  $('elim-edit-home').innerHTML = getTeamOptions(r.home || '', '— Equipo local —');
+  $('elim-edit-away').innerHTML = getTeamOptions(r.away || '', '— Equipo visitante —');
   $('elim-edit-h').value = r.h !== '' && r.h !== null && r.h !== undefined ? r.h : '';
   $('elim-edit-a').value = r.a !== '' && r.a !== null && r.a !== undefined ? r.a : '';
 
@@ -1422,10 +1446,10 @@ function rebuildElimEditWinnerOptions() {
   const r = state.elimResults[key] || {};
   const currentWinner = $('elim-edit-winner').value || r.winner || '';
   let options = '<option value="">— Sin definir —</option>';
-  if (home) options += `<option value="${escapeHtml(home)}"${currentWinner === home ? ' selected' : ''}>🏆 ${escapeHtml(home)}</option>`;
-  if (away && away !== home) options += `<option value="${escapeHtml(away)}"${currentWinner === away ? ' selected' : ''}>🏆 ${escapeHtml(away)}</option>`;
+  if (home) options += `<option value="${escapeHtml(home)}"${currentWinner === home ? ' selected' : ''}>🏆 ${escapeHtml(TEAMS[home] || home)}</option>`;
+  if (away && away !== home) options += `<option value="${escapeHtml(away)}"${currentWinner === away ? ' selected' : ''}>🏆 ${escapeHtml(TEAMS[away] || away)}</option>`;
   if (currentWinner && currentWinner !== home && currentWinner !== away) {
-    options += `<option value="${escapeHtml(currentWinner)}" selected>🏆 ${escapeHtml(currentWinner)}</option>`;
+    options += `<option value="${escapeHtml(currentWinner)}" selected>🏆 ${escapeHtml(TEAMS[currentWinner] || currentWinner)}</option>`;
   }
   $('elim-edit-winner').innerHTML = options;
 }
@@ -1456,6 +1480,24 @@ async function saveElimEditor() {
   } catch (err) {
     showToast('❌ ' + err.message, 'error');
   }
+}
+
+// Cuando cambia un equipo en vista lista de elim, refresca el select de ganador y guarda
+function onElimTeamChange(key) {
+  const homeEl = $('em_' + key + '_home');
+  const awayEl = $('em_' + key + '_away');
+  const winnerEl = $('em_' + key + '_winner');
+  if (homeEl && awayEl && winnerEl) {
+    const home = homeEl.value;
+    const away = awayEl.value;
+    const currentWinner = winnerEl.value;
+    let opts = '<option value="">— Sin definir —</option>';
+    if (home) opts += `<option value="${home}"${currentWinner === home ? ' selected' : ''}>🏆 ${TEAMS[home] || home}</option>`;
+    if (away && away !== home) opts += `<option value="${away}"${currentWinner === away ? ' selected' : ''}>🏆 ${TEAMS[away] || away}</option>`;
+    winnerEl.innerHTML = opts;
+  }
+  // Guardar después de actualizar opciones
+  saveElimResult(key);
 }
 
 async function saveElimResult(key) {
@@ -1641,6 +1683,7 @@ window.deleteParticipant = deleteParticipant;
 window.openPozoCalc = openPozoCalc;
 window.copyCodigoModal = copyCodigoModal;
 window.saveElimResult = saveElimResult;
+window.onElimTeamChange = onElimTeamChange;
 window.toggleElimLock = toggleElimLock;
 window.setElimView = setElimView;
 window.openElimEditor = openElimEditor;
