@@ -716,11 +716,15 @@ input[type=password]{letter-spacing:2px;}
     <div class="form-row">
       <div class="form-group">
         <label>Equipo local</label>
-        <input type="text" id="elim-edit-home" placeholder="Ej. MEX" onchange="rebuildElimEditWinnerOptions()">
+        <select id="elim-edit-home" onchange="rebuildElimEditWinnerOptions()">
+          <option value="">— Equipo local —</option>
+        </select>
       </div>
       <div class="form-group">
         <label>Equipo visitante</label>
-        <input type="text" id="elim-edit-away" placeholder="Ej. FRA" onchange="rebuildElimEditWinnerOptions()">
+        <select id="elim-edit-away" onchange="rebuildElimEditWinnerOptions()">
+          <option value="">— Equipo visitante —</option>
+        </select>
       </div>
     </div>
 
