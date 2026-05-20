@@ -92,7 +92,17 @@ const ADMIN_PAGES = ['quinielas','participantes','admin'];
 // La fase de grupos del Mundial 2026 termina el 27 de junio
 const ELIM_UNLOCK_DATE = new Date('2026-06-28T06:00:00Z'); // 00:00 CST = 06:00 UTC
 
-let session = { type: null, pid: null, nombre: null }; // type: 'admin' | 'empleado' | null
+// ═══════════════════════════════════════════
+// FECHA LÍMITE para capturar quinielas (empleados)
+// ═══════════════════════════════════════════
+// 11 de junio 2026, 10:00 AM hora México (UTC-6) = 16:00 UTC
+const QUINIELA_DEADLINE = new Date('2026-06-11T16:00:00Z');
+
+function isQuinielaOpen() {
+  return new Date() < QUINIELA_DEADLINE;
+}
+
+let session = { type: null, pid: null, nombre: null };
 let _pendingPage = null;
 let elimCountdownInterval = null;
 
@@ -601,8 +611,23 @@ function renderMiQuiniela() {
     </div>
   </div>`;
 
+  // Estado de la deadline
+  const open = isQuinielaOpen();
+  const now = new Date();
+  let deadlineHtml = '';
+  if (open) {
+    const diff = QUINIELA_DEADLINE - now;
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+    deadlineHtml = `<div class="alert alert-warn" style="margin-bottom:16px;">⏰ <strong>Fecha límite:</strong> 11 de junio 2026, 10:00 AM (hora México) · Quedan <strong>${days} días y ${hours} hrs</strong> para capturar.</div>`;
+  } else {
+    deadlineHtml = `<div class="alert alert-error" style="margin-bottom:16px;">🔒 <strong>Periodo cerrado.</strong> La fecha límite del 11 de junio ya pasó. Tu quiniela quedó congelada.</div>`;
+  }
+
+  html += deadlineHtml;
+
   html += `<div style="margin-bottom:20px;">
-    <button class="btn btn-green" onclick="openEditMiQuiniela()">✏️ Capturar / Editar mi quiniela</button>
+    <button class="btn btn-green" onclick="openEditMiQuiniela()" ${open ? '' : 'disabled style="opacity:.5;cursor:not-allowed;"'}>✏️ ${open ? 'Capturar / Editar mi quiniela' : 'Periodo cerrado'}</button>
   </div>`;
 
   // Render predicciones vs resultados
@@ -650,6 +675,76 @@ function renderQuinielaView(pid) {
     html += `</div>`;
   });
   html += `</div>`;
+
+  // === ELIMINATORIA: predicciones del empleado vs resultados reales ===
+  const elimLabels = {'r32':'Dieciseisavos','r16':'Octavos','qf':'Cuartos','sf':'Semifinales','fin':'Final','3rd':'Tercer Lugar'};
+  let hasAnyElimPred = false;
+  ELIM_ROUNDS.forEach(round => {
+    for (let i = 0; i < round.matches; i++) {
+      if (q.elim && q.elim[`${round.id}_${i}`]) { hasAnyElimPred = true; break; }
+    }
+  });
+
+  if (hasAnyElimPred) {
+    html += `<div style="margin-top:32px;margin-bottom:14px;">
+      <div style="font-family:'Bebas Neue';font-size:24px;color:var(--gold);letter-spacing:2px;">🔥 ELIMINATORIA — PREDICCIONES</div>
+      <div style="color:var(--muted);font-size:12px;">Tus predicciones de partidos eliminatorios vs el resultado real</div>
+    </div>`;
+
+    ELIM_ROUNDS.forEach(round => {
+      // Verificar si hay al menos una predicción en esta ronda
+      let hasInRound = false;
+      for (let i = 0; i < round.matches; i++) {
+        if (q.elim && q.elim[`${round.id}_${i}`]) { hasInRound = true; break; }
+      }
+      if (!hasInRound) return;
+
+      html += `<div class="group-card" style="margin-bottom:14px;border-color:rgba(245,197,24,.15);">
+        <div class="group-header" style="background:rgba(245,197,24,.12);color:var(--gold);">🔥 ${elimLabels[round.id]} (${state.pts['elim_'+round.id]||0} pts c/u)</div>`;
+
+      for (let i = 0; i < round.matches; i++) {
+        const key = `${round.id}_${i}`;
+        const pred = q.elim && q.elim[key];
+        if (!pred) continue;
+        const real = state.elimResults[key];
+        const pts = score.detail[key] || 0;
+
+        const predHome = pred.home ? (TEAMS[pred.home] || pred.home) : '—';
+        const predAway = pred.away ? (TEAMS[pred.away] || pred.away) : '—';
+        const predWinner = pred.winner ? (TEAMS[pred.winner] || pred.winner) : '—';
+        const predScore = (pred.h !== '' && pred.h !== null && pred.h !== undefined && pred.a !== '' && pred.a !== null && pred.a !== undefined) ? `${pred.h} · ${pred.a}` : '—';
+
+        const realHome = real && real.home ? (TEAMS[real.home] || real.home) : '—';
+        const realAway = real && real.away ? (TEAMS[real.away] || real.away) : '—';
+        const realScore = real && real.h !== '' && real.h !== null && real.h !== undefined && real.a !== '' && real.a !== null && real.a !== undefined ? `${real.h} · ${real.a}` : '—';
+        const realWinner = real && real.winner ? (TEAMS[real.winner] || real.winner) : '—';
+
+        const acierto = real && real.winner && pred.winner && real.winner === pred.winner;
+
+        html += `<div style="padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.04);">
+          <div style="font-family:'Barlow Condensed';font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:6px;">Partido ${i+1}</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 60px;gap:10px;align-items:center;font-size:12px;">
+            <div>
+              <div style="color:var(--gold);font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;">Tu predicción</div>
+              <div>${predHome} <span style="color:var(--gold);font-family:'Bebas Neue';">${predScore}</span> ${predAway}</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:2px;">🏆 ${predWinner}</div>
+            </div>
+            <div>
+              <div style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;">Resultado real</div>
+              <div>${realHome} <span style="color:var(--white);font-family:'Bebas Neue';">${realScore}</span> ${realAway}</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:2px;">🏆 ${realWinner}</div>
+            </div>
+            <div style="text-align:center;">
+              <span class="pts-chip${pts === 0 ? ' zero' : ''}" style="font-size:18px;padding:4px 12px;">${pts}</span>
+              ${acierto ? '<div style="font-size:9px;color:var(--green);margin-top:4px;">✓ ACIERTO</div>' : ''}
+            </div>
+          </div>
+        </div>`;
+      }
+      html += `</div>`;
+    });
+  }
+
   return html;
 }
 
@@ -717,15 +812,35 @@ function openEditQuiniela(pid) {
   currentQuinielaPid = pid;
   const p = state.participants.find(x => x.id === pid);
   if (!p) return;
+
+  // Verificar fecha límite (solo aplica a empleados, admin siempre puede editar)
+  if (session.type === 'empleado' && !isQuinielaOpen()) {
+    showToast('🔒 El periodo de captura cerró el 11 de junio 10:00 AM. Solo el admin puede modificar.', 'warn', 5000);
+    return;
+  }
+
   $('qm-title').textContent = (p.nombre).toUpperCase() + ' · QUINIELA';
-  $('qm-sub').textContent = 'Predicciones fase de grupos · Tus cambios se guardan al hacer clic en Guardar';
+  $('qm-sub').textContent = 'Predicciones fase de grupos + eliminatoria · Guarda al final';
   const q = state.quinielas[pid] || { groups: {}, elim: {} };
   const gkeys = Object.keys(GROUPS);
-  $('qm-tabs').innerHTML = gkeys.map((g, i) =>
+
+  // Construir tabs: 12 grupos + 6 rondas eliminatorias
+  let tabsHtml = gkeys.map((g, i) =>
     `<button class="inner-tab${i === 0 ? ' active' : ''}" onclick="switchInner('qmg','qmg-${g}',this)">Grupo ${g}</button>`
   ).join('');
+  // Tabs de eliminatoria
+  const elimRoundLabels = {
+    'r32':'16vos', 'r16':'8vos', 'qf':'Cuartos', 'sf':'Semis', 'fin':'Final', '3rd':'3er Lugar'
+  };
+  ELIM_ROUNDS.forEach(round => {
+    tabsHtml += `<button class="inner-tab" onclick="switchInner('qmg','qmg-elim-${round.id}',this)" style="border-color:rgba(245,197,24,.3);color:var(--gold);">🔥 ${elimRoundLabels[round.id]}</button>`;
+  });
+  $('qm-tabs').innerHTML = tabsHtml;
 
+  // Construir contenido
   let content = '';
+
+  // === FASE DE GRUPOS ===
   gkeys.forEach((g, i) => {
     content += `<div id="qmg-${g}" class="inner-page${i === 0 ? ' active' : ''}">
       <div class="group-card" style="border-radius:12px;overflow:hidden;">
@@ -745,19 +860,105 @@ function openEditQuiniela(pid) {
     });
     content += `</div></div>`;
   });
+
+  // === FASE ELIMINATORIA ===
+  // Construir opciones de equipos para los dropdowns (ordenados alfabéticamente por nombre)
+  const teamCodes = Object.keys(TEAMS).sort((a, b) => {
+    const na = TEAMS[a].split(' ').slice(1).join(' ');
+    const nb = TEAMS[b].split(' ').slice(1).join(' ');
+    return na.localeCompare(nb);
+  });
+  const teamOptions = '<option value="">— Selecciona equipo —</option>' +
+    teamCodes.map(c => `<option value="${c}">${TEAMS[c]}</option>`).join('');
+
+  ELIM_ROUNDS.forEach(round => {
+    const ptsRound = state.pts['elim_' + round.id] || DEFAULT_PTS['elim_' + round.id] || 0;
+    content += `<div id="qmg-elim-${round.id}" class="inner-page">
+      <div class="group-card" style="border-radius:12px;overflow:hidden;border-color:rgba(245,197,24,.2);">
+        <div class="group-header" style="background:rgba(245,197,24,.15);color:var(--gold);">🔥 ${elimRoundLabels[round.id]} — ${ptsRound} pts por acierto de ganador</div>
+        <div style="padding:14px;color:var(--muted);font-size:12px;line-height:1.6;background:rgba(0,0,0,.15);">
+          💡 Selecciona los equipos que crees que jugarán esta ronda, predice el marcador final y elige al ganador.
+        </div>`;
+    for (let i = 0; i < round.matches; i++) {
+      const key = `${round.id}_${i}`;
+      const pred = (q.elim && q.elim[key]) || { home: '', away: '', h: '', a: '', winner: '' };
+      const selHome = (val) => val === pred.home ? ' selected' : '';
+      const selAway = (val) => val === pred.away ? ' selected' : '';
+      const homeOpts = teamOptions.replace(/value="([^"]+)"/g, (m, c) => `value="${c}"${selHome(c)}`);
+      const awayOpts = teamOptions.replace(/value="([^"]+)"/g, (m, c) => `value="${c}"${selAway(c)}`);
+      // Winner options (depende de home/away)
+      let winnerOpts = '<option value="">— ¿Quién gana? —</option>';
+      if (pred.home) winnerOpts += `<option value="${pred.home}"${pred.winner === pred.home ? ' selected' : ''}>🏆 ${TEAMS[pred.home] || pred.home}</option>`;
+      if (pred.away && pred.away !== pred.home) winnerOpts += `<option value="${pred.away}"${pred.winner === pred.away ? ' selected' : ''}>🏆 ${TEAMS[pred.away] || pred.away}</option>`;
+      if (pred.winner && pred.winner !== pred.home && pred.winner !== pred.away) {
+        winnerOpts += `<option value="${pred.winner}" selected>🏆 ${TEAMS[pred.winner] || pred.winner}</option>`;
+      }
+      content += `<div style="padding:14px;border-bottom:1px solid rgba(255,255,255,.04);">
+        <div style="font-family:'Barlow Condensed';font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">Partido ${i + 1}</div>
+        <div class="form-row" style="margin-bottom:10px;">
+          <div class="form-group" style="margin:0;">
+            <label style="font-size:10px;">Equipo local</label>
+            <select id="qelim_${key}_home" onchange="updateElimWinnerSelect('${key}')">${homeOpts}</select>
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label style="font-size:10px;">Equipo visitante</label>
+            <select id="qelim_${key}_away" onchange="updateElimWinnerSelect('${key}')">${awayOpts}</select>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:end;">
+          <div>
+            <label style="font-size:10px;">Marcador</label>
+            <div style="display:flex;align-items:center;gap:8px;justify-content:center;">
+              <input class="predict-input" type="number" min="0" max="9" maxlength="1" value="${pred.h !== '' && pred.h !== null && pred.h !== undefined ? pred.h : ''}" placeholder="-" id="qelim_${key}_h" oninput="if(this.value.length>1)this.value=this.value.slice(-1);" onfocus="this.select()">
+              <span class="score-sep">:</span>
+              <input class="predict-input" type="number" min="0" max="9" maxlength="1" value="${pred.a !== '' && pred.a !== null && pred.a !== undefined ? pred.a : ''}" placeholder="-" id="qelim_${key}_a" oninput="if(this.value.length>1)this.value=this.value.slice(-1);" onfocus="this.select()">
+            </div>
+          </div>
+          <div>
+            <label style="font-size:10px;">🏆 Ganador (avanza)</label>
+            <select id="qelim_${key}_winner">${winnerOpts}</select>
+          </div>
+        </div>
+      </div>`;
+    }
+    content += `</div></div>`;
+  });
+
   $('qm-content').innerHTML = content;
   openModal('modal-quiniela');
+}
+
+// Helper: cuando cambia el equipo local o visitante de elim, actualizar el select de ganador
+function updateElimWinnerSelect(key) {
+  const homeEl = $('qelim_' + key + '_home');
+  const awayEl = $('qelim_' + key + '_away');
+  const winnerEl = $('qelim_' + key + '_winner');
+  if (!homeEl || !awayEl || !winnerEl) return;
+  const home = homeEl.value;
+  const away = awayEl.value;
+  const currentWinner = winnerEl.value;
+  let html = '<option value="">— ¿Quién gana? —</option>';
+  if (home) html += `<option value="${home}"${currentWinner === home ? ' selected' : ''}>🏆 ${TEAMS[home] || home}</option>`;
+  if (away && away !== home) html += `<option value="${away}"${currentWinner === away ? ' selected' : ''}>🏆 ${TEAMS[away] || away}</option>`;
+  winnerEl.innerHTML = html;
 }
 
 async function saveQuiniela() {
   if (!currentQuinielaPid) return;
 
-  // Permisos: admin puede editar cualquiera; empleado solo la suya
+  // Permisos
   if (session.type !== 'admin' && !(session.type === 'empleado' && session.pid === currentQuinielaPid)) {
     showToast('No tienes permiso para editar esta quiniela', 'error');
     return;
   }
 
+  // Verificar fecha límite (solo aplica a empleados)
+  if (session.type === 'empleado' && !isQuinielaOpen()) {
+    showToast('🔒 La fecha límite pasó. No puedes modificar tu quiniela.', 'warn', 5000);
+    return;
+  }
+
+  // Recolectar grupos
   const groups = {};
   Object.keys(GROUPS).forEach(g => {
     GROUPS[g].forEach((m, i) => {
@@ -774,17 +975,39 @@ async function saveQuiniela() {
     });
   });
 
+  // Recolectar eliminatoria
+  const elim = {};
+  ELIM_ROUNDS.forEach(round => {
+    for (let i = 0; i < round.matches; i++) {
+      const key = `${round.id}_${i}`;
+      const homeEl = $('qelim_' + key + '_home');
+      const awayEl = $('qelim_' + key + '_away');
+      const hEl = $('qelim_' + key + '_h');
+      const aEl = $('qelim_' + key + '_a');
+      const winnerEl = $('qelim_' + key + '_winner');
+      if (homeEl && awayEl && winnerEl) {
+        const home = homeEl.value || '';
+        const away = awayEl.value || '';
+        const h = hEl && hEl.value !== '' ? parseInt(hEl.value) : '';
+        const a = aEl && aEl.value !== '' ? parseInt(aEl.value) : '';
+        const winner = winnerEl.value || '';
+        // Solo guardar si tiene al menos un campo
+        if (home || away || h !== '' || a !== '' || winner) {
+          elim[key] = { home, away, h, a, winner };
+        }
+      }
+    }
+  });
+
   try {
     const ref = doc(db, 'quinielas', currentQuinielaPid);
-    // Preserva elim si ya existía
-    const existing = state.quinielas[currentQuinielaPid] || {};
     await setDoc(ref, {
       groups,
-      elim: existing.elim || {},
+      elim,
       actualizado: serverTimestamp()
     }, { merge: false });
     closeModal('modal-quiniela');
-    showToast('✅ Quiniela guardada', 'success');
+    showToast('✅ Quiniela guardada (grupos + eliminatoria)', 'success');
     flash();
   } catch (err) {
     console.error(err);
@@ -1410,6 +1633,7 @@ window.openEditQuiniela = openEditQuiniela;
 window.openEditCurrentQuiniela = openEditCurrentQuiniela;
 window.openEditMiQuiniela = openEditMiQuiniela;
 window.saveQuiniela = saveQuiniela;
+window.updateElimWinnerSelect = updateElimWinnerSelect;
 window.openAddParticipant = openAddParticipant;
 window.saveParticipant = saveParticipant;
 window.togglePago = togglePago;
