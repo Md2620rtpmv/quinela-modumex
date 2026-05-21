@@ -1298,6 +1298,10 @@ function renderEliminatoria() {
   } else {
     renderElimList();
   }
+
+  // ★ IMPORTANTE: aplicar permisos después de renderizar
+  // Sin esto, los selects/inputs recién creados quedarían editables para empleados
+  toggleEditableInputs();
 }
 
 // ---------- Vista LISTA (la que ya teníamos) ----------
