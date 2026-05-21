@@ -96,7 +96,7 @@ const PTS_LABELS = {
 // AUTH (cliente)
 // ═══════════════════════════════════════════
 const ADMIN_USER = 'admin';
-const ADMIN_PASS = 'modumex2026'; // ← CAMBIAR antes de producción
+const ADMIN_PASS = 'kP9xT2-mNqR8vL4'; // ← password actual
 const ADMIN_PAGES = ['quinielas','participantes','admin'];
 
 // ═══════════════════════════════════════════
