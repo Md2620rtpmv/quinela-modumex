@@ -310,6 +310,23 @@ input[type=password]{letter-spacing:2px;}
 .home-section-label{font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--green);margin-bottom:12px;}
 .home-section-title{font-family:'Bebas Neue',sans-serif;font-size:clamp(36px,5vw,60px);line-height:1;margin-bottom:16px;}
 .home-divider{height:1px;background:linear-gradient(90deg,var(--green),transparent);margin:0 24px;}
+
+/* CALENDARIO TIMELINE */
+.timeline-home{margin-top:36px;position:relative;padding-left:32px;}
+.timeline-home::before{content:'';position:absolute;left:10px;top:0;bottom:0;width:2px;background:linear-gradient(to bottom,var(--green),transparent);}
+.tl-item-home{position:relative;padding:0 0 36px 28px;}
+.tl-item-home::before{content:'';position:absolute;left:-22px;top:6px;width:12px;height:12px;background:var(--green);border-radius:50%;box-shadow:0 0 12px rgba(0,166,81,0.5);}
+.tl-item-home:last-child{padding-bottom:0;}
+.tl-date-home{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--green);margin-bottom:4px;}
+.tl-title-home{font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:700;color:var(--white);margin-bottom:4px;}
+.tl-desc-home{font-size:13px;color:var(--muted);line-height:1.6;}
+
+/* REGLAS OFICIALES */
+.rules-list-home{margin-top:28px;display:flex;flex-direction:column;gap:10px;}
+.rule-row-home{display:flex;gap:14px;align-items:flex-start;background:var(--dark2);border:1px solid rgba(255,255,255,0.05);border-radius:10px;padding:14px 18px;}
+.rule-icon-home{font-size:18px;min-width:26px;}
+.rule-text-home{font-size:14px;line-height:1.5;color:#c8d8c8;}
+.rule-text-home strong{color:var(--white);}
 .steps-grid-home{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:24px;margin-top:48px;}
 .step-card-home{background:var(--dark2);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:32px 28px;position:relative;overflow:hidden;transition:border-color .2s,transform .2s;}
 .step-card-home:hover{border-color:rgba(0,166,81,0.4);transform:translateY(-4px);}
@@ -471,12 +488,65 @@ input[type=password]{letter-spacing:2px;}
     <div class="home-section-label">Sistema de puntos</div>
     <h2 class="home-section-title">¿CÓMO SE PUNTÚA?</h2>
     <div class="scoring-grid-home">
-      <div class="score-card-home"><div class="score-badge-home">3</div><div><div class="score-pts-label">Resultado exacto</div><div class="score-pts-detail">Marcador correcto en grupos</div></div></div>
-      <div class="score-card-home"><div class="score-badge-home">1</div><div><div class="score-pts-label">Ganador correcto</div><div class="score-pts-detail">Quién ganó (o empate) en grupos</div></div></div>
-      <div class="score-card-home"><div class="score-badge-home">2</div><div><div class="score-pts-label">Dieciseisavos</div><div class="score-pts-detail">Acertar ganador</div></div></div>
-      <div class="score-card-home"><div class="score-badge-home">4</div><div><div class="score-pts-label">Octavos / Cuartos</div><div class="score-pts-detail">Acertar ganador</div></div></div>
-      <div class="score-card-home"><div class="score-badge-home">6</div><div><div class="score-pts-label">Semifinales</div><div class="score-pts-detail">Acertar ganador</div></div></div>
-      <div class="score-card-home"><div class="score-badge-home">8</div><div><div class="score-pts-label">Final</div><div class="score-pts-detail">Acertar campeón</div></div></div>
+      <div class="score-card-home"><div class="score-badge-home">3</div><div><div class="score-pts-label">Resultado exacto</div><div class="score-pts-detail">Marcador correcto (ej. 2-1) · Con acierto de ganador, sólo aplica en Fase de Grupos.</div></div></div>
+      <div class="score-card-home"><div class="score-badge-home">1</div><div><div class="score-pts-label">Ganador correcto</div><div class="score-pts-detail">Acertaste quién gana o el empate · En fase de Grupos</div></div></div>
+      <div class="score-card-home"><div class="score-badge-home">1</div><div><div class="score-pts-label">Enfrentamiento correcto</div><div class="score-pts-detail">Adivinas qué 2 equipos se enfrentan · Desde Dieciseisavos en adelante</div></div></div>
+      <div class="score-card-home"><div class="score-badge-home">2</div><div><div class="score-pts-label">Dieciseisavos</div><div class="score-pts-detail">Acertar ganador en fase de Dieciseisavos</div></div></div>
+      <div class="score-card-home"><div class="score-badge-home">4</div><div><div class="score-pts-label">Octavos / Cuartos</div><div class="score-pts-detail">Acertar ganador eliminatorios</div></div></div>
+      <div class="score-card-home"><div class="score-badge-home">4</div><div><div class="score-pts-label">Tercer Lugar</div><div class="score-pts-detail">Acertar ganador del partido por el tercer lugar</div></div></div>
+      <div class="score-card-home"><div class="score-badge-home">6</div><div><div class="score-pts-label">Semifinales</div><div class="score-pts-detail">Acertar ganador de semis</div></div></div>
+      <div class="score-card-home"><div class="score-badge-home">8</div><div><div class="score-pts-label">Final</div><div class="score-pts-detail">Acertar campeón del mundo</div></div></div>
+    </div>
+  </section>
+
+  <div class="home-divider"></div>
+
+  <!-- CALENDARIO -->
+  <section class="home-section">
+    <div class="home-section-label">Fechas clave</div>
+    <h2 class="home-section-title">CALENDARIO</h2>
+    <div class="timeline-home">
+      <div class="tl-item-home">
+        <div class="tl-date-home">22 de Mayo</div>
+        <div class="tl-title-home">📣 Inscripciones y recepción de boletas</div>
+        <div class="tl-desc-home">Los empleados pagan su cuota y reciben su boleta de quiniela.</div>
+      </div>
+      <div class="tl-item-home">
+        <div class="tl-date-home">10 de Junio · 15:00 hrs</div>
+        <div class="tl-title-home">🔒 Cierre de predicciones</div>
+        <div class="tl-desc-home">Todas las quinielas deben estar entregadas. No se aceptan cambios una vez cerrada la ventana.</div>
+      </div>
+      <div class="tl-item-home">
+        <div class="tl-date-home">11 de Junio</div>
+        <div class="tl-title-home">⚽ ¡Arranca el Mundial!</div>
+        <div class="tl-desc-home">México vs Sudáfrica en el Estadio Azteca. El primer partido del torneo. ¡A sufrir y a ganar puntos!</div>
+      </div>
+      <div class="tl-item-home">
+        <div class="tl-date-home">11 Jun — 19 Jul</div>
+        <div class="tl-title-home">📊 Ranking en vivo</div>
+        <div class="tl-desc-home">Se actualiza la tabla de posiciones interna semanalmente.</div>
+      </div>
+      <div class="tl-item-home">
+        <div class="tl-date-home">19 de Julio · Finales</div>
+        <div class="tl-title-home">🏆 Premiación</div>
+        <div class="tl-desc-home">Después de la gran final, se anuncia el ganador y se entrega el pozo completo. ¡Celebración en la empresa!</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- REGLAS OFICIALES -->
+  <section class="home-section" style="padding-top:0;">
+    <div class="home-section-label">Términos</div>
+    <h2 class="home-section-title">REGLAS OFICIALES</h2>
+    <div class="rules-list-home">
+      <div class="rule-row-home"><div class="rule-icon-home">✅</div><div class="rule-text-home"><strong>Participación exclusiva para empleados activos</strong> de Grupo Modumex.</div></div>
+      <div class="rule-row-home"><div class="rule-icon-home">💰</div><div class="rule-text-home"><strong>Cuota única de inscripción</strong> por participante. Un solo lugar por persona. Pago antes de la fecha límite.</div></div>
+      <div class="rule-row-home"><div class="rule-icon-home">📋</div><div class="rule-text-home"><strong>Las predicciones son inamovibles</strong> una vez enviadas. No se permiten modificaciones después del cierre.</div></div>
+      <div class="rule-row-home"><div class="rule-icon-home">🏢</div><div class="rule-text-home"><strong>Grupo Modumex aporta el doble</strong> de lo recaudado por los empleados al pozo total del ganador.</div></div>
+      <div class="rule-row-home"><div class="rule-icon-home">🥇</div><div class="rule-text-home"><strong>Ganador único:</strong> quien acumule más puntos al final del Mundial. En empate, gana quien acertó más marcadores exactos. Si persiste, se divide el pozo.</div></div>
+      <div class="rule-row-home"><div class="rule-icon-home">⚖️</div><div class="rule-text-home"><strong>Decisión final</strong> sobre disputas o casos especiales queda a cargo del coordinador designado por Recursos Humanos.</div></div>
+      <div class="rule-row-home"><div class="rule-icon-home">🚫</div><div class="rule-text-home"><strong>No hay devoluciones</strong> de la cuota una vez cerrado el registro, salvo cancelación total del evento.</div></div>
+      <div class="rule-row-home"><div class="rule-icon-home">📣</div><div class="rule-text-home"><strong>La participación implica aceptar</strong> todas las reglas y decisiones del coordinador del evento.</div></div>
     </div>
   </section>
 
