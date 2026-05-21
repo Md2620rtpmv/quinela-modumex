@@ -24,33 +24,45 @@ const db = getFirestore(app);
 // CONSTANTES DEL MUNDIAL
 // ═══════════════════════════════════════════
 const TEAMS = {
-  MEX:'🇲🇽 México', RSA:'🇿🇦 Sudáfrica', COR:'🇰🇷 Corea', RPC:'🇨🇳 China',
-  CAN:'🇨🇦 Canadá', BOS:'🇧🇦 Bosnia', QAT:'🇶🇦 Qatar', SUI:'🇨🇭 Suiza',
-  BRA:'🇧🇷 Brasil', MAR:'🇲🇦 Marruecos', HAI:'🇭🇹 Haití', ESC:'🏴󠁧󠁢󠁳󠁣󠁴󠁿 Escocia',
-  USA:'🇺🇸 USA', PAR:'🇵🇾 Paraguay', AUS:'🇦🇺 Australia', TUR:'🇹🇷 Turquía',
-  ALE:'🇩🇪 Alemania', CUR:'🇨🇼 Curazao', CDM:'🇨🇩 Congo DR', ECU:'🇪🇨 Ecuador',
-  PBA:'🇵🇸 Palestina', JAP:'🇯🇵 Japón', SUE:'🇸🇪 Suecia', TUN:'🇹🇳 Túnez',
-  BEL:'🇧🇪 Bélgica', EGI:'🇪🇬 Egipto', IRA:'🇮🇷 Irán', NZL:'🇳🇿 Nueva Zelanda',
-  ESP:'🇪🇸 España', CAB:'🇨🇻 Cabo Verde', ARA:'🇸🇦 Arabia Saudita', URU:'🇺🇾 Uruguay',
+  // GRUPO A
+  MEX:'🇲🇽 México', RSA:'🇿🇦 Sudáfrica', KOR:'🇰🇷 República de Corea', CZE:'🇨🇿 Chequia',
+  // GRUPO B
+  CAN:'🇨🇦 Canadá', BIH:'🇧🇦 Bosnia y Herzegovina', QAT:'🇶🇦 Catar', SUI:'🇨🇭 Suiza',
+  // GRUPO C
+  BRA:'🇧🇷 Brasil', MAR:'🇲🇦 Marruecos', HAI:'🇭🇹 Haití', SCO:'🏴󠁧󠁢󠁳󠁣󠁴󠁿 Escocia',
+  // GRUPO D
+  USA:'🇺🇸 EE. UU.', PAR:'🇵🇾 Paraguay', AUS:'🇦🇺 Australia', TUR:'🇹🇷 Turquía',
+  // GRUPO E
+  GER:'🇩🇪 Alemania', CUW:'🇨🇼 Curazao', CIV:'🇨🇮 Costa de Marfil', ECU:'🇪🇨 Ecuador',
+  // GRUPO F
+  NED:'🇳🇱 Países Bajos', JPN:'🇯🇵 Japón', SWE:'🇸🇪 Suecia', TUN:'🇹🇳 Túnez',
+  // GRUPO G
+  BEL:'🇧🇪 Bélgica', EGY:'🇪🇬 Egipto', IRN:'🇮🇷 RI de Irán', NZL:'🇳🇿 Nueva Zelanda',
+  // GRUPO H
+  ESP:'🇪🇸 España', CPV:'🇨🇻 Cabo Verde', KSA:'🇸🇦 Arabia Saudí', URU:'🇺🇾 Uruguay',
+  // GRUPO I
+  FRA:'🇫🇷 Francia', SEN:'🇸🇳 Senegal', IRQ:'🇮🇶 Irak', NOR:'🇳🇴 Noruega',
+  // GRUPO J
   ARG:'🇦🇷 Argentina', ALG:'🇩🇿 Argelia', AUT:'🇦🇹 Austria', JOR:'🇯🇴 Jordania',
-  POR:'🇵🇹 Portugal', RDC:'🇨🇩 RD Congo', UZB:'🇺🇿 Uzbekistán', COL:'🇨🇴 Colombia',
-  ING:'🏴󠁧󠁢󠁥󠁮󠁧󠁿 Inglaterra', CRO:'🇭🇷 Croacia', GHA:'🇬🇭 Ghana', PAN:'🇵🇦 Panamá',
-  FRA:'🇫🇷 Francia', SEN:'🇸🇳 Senegal', IRK:'🇮🇶 Irak', NOR:'🇳🇴 Noruega'
+  // GRUPO K
+  POR:'🇵🇹 Portugal', COD:'🇨🇩 RD Congo', UZB:'🇺🇿 Uzbekistán', COL:'🇨🇴 Colombia',
+  // GRUPO L
+  ENG:'🏴󠁧󠁢󠁥󠁮󠁧󠁿 Inglaterra', CRO:'🇭🇷 Croacia', GHA:'🇬🇭 Ghana', PAN:'🇵🇦 Panamá'
 };
 
 const GROUPS = {
-  A: [['MEX','RSA'],['COR','RPC'],['RPC','RSA'],['MEX','COR'],['RSA','COR'],['RPC','MEX']],
-  B: [['CAN','BOS'],['QAT','SUI'],['SUI','BOS'],['CAN','QAT'],['BOS','QAT'],['SUI','CAN']],
-  C: [['BRA','MAR'],['HAI','ESC'],['ESC','MAR'],['BRA','HAI'],['ESC','BRA'],['MAR','HAI']],
+  A: [['MEX','RSA'],['KOR','CZE'],['CZE','RSA'],['MEX','KOR'],['RSA','KOR'],['CZE','MEX']],
+  B: [['CAN','BIH'],['QAT','SUI'],['SUI','BIH'],['CAN','QAT'],['BIH','QAT'],['SUI','CAN']],
+  C: [['BRA','MAR'],['HAI','SCO'],['SCO','MAR'],['BRA','HAI'],['SCO','BRA'],['MAR','HAI']],
   D: [['USA','PAR'],['AUS','TUR'],['USA','AUS'],['TUR','PAR'],['PAR','AUS'],['TUR','USA']],
-  E: [['ALE','CUR'],['CDM','ECU'],['ALE','CDM'],['ECU','CUR'],['CUR','CDM'],['ECU','ALE']],
-  F: [['PBA','JAP'],['SUE','TUN'],['PBA','SUE'],['TUN','JAP'],['JAP','SUE'],['TUN','PBA']],
-  G: [['BEL','EGI'],['IRA','NZL'],['BEL','IRA'],['NZL','EGI'],['NZL','BEL'],['EGI','IRA']],
-  H: [['ESP','CAB'],['ARA','URU'],['ESP','ARA'],['URU','CAB'],['CAB','ARA'],['URU','ESP']],
-  I: [['FRA','SEN'],['IRK','NOR'],['FRA','IRK'],['NOR','SEN'],['SEN','IRK'],['NOR','FRA']],
+  E: [['GER','CUW'],['CIV','ECU'],['GER','CIV'],['ECU','CUW'],['CUW','CIV'],['ECU','GER']],
+  F: [['NED','JPN'],['SWE','TUN'],['NED','SWE'],['TUN','JPN'],['JPN','SWE'],['TUN','NED']],
+  G: [['BEL','EGY'],['IRN','NZL'],['BEL','IRN'],['NZL','EGY'],['NZL','BEL'],['EGY','IRN']],
+  H: [['ESP','CPV'],['KSA','URU'],['ESP','KSA'],['URU','CPV'],['CPV','KSA'],['URU','ESP']],
+  I: [['FRA','SEN'],['IRQ','NOR'],['FRA','IRQ'],['NOR','SEN'],['SEN','IRQ'],['NOR','FRA']],
   J: [['ARG','ALG'],['AUT','JOR'],['ARG','AUT'],['JOR','ALG'],['ALG','AUT'],['JOR','ARG']],
-  K: [['POR','RDC'],['UZB','COL'],['POR','UZB'],['COL','RDC'],['RDC','UZB'],['COL','POR']],
-  L: [['ING','CRO'],['GHA','PAN'],['ING','GHA'],['PAN','CRO'],['CRO','GHA'],['PAN','ING']]
+  K: [['POR','COD'],['UZB','COL'],['POR','UZB'],['COL','COD'],['COD','UZB'],['COL','POR']],
+  L: [['ENG','CRO'],['GHA','PAN'],['ENG','GHA'],['PAN','CRO'],['CRO','GHA'],['PAN','ENG']]
 };
 
 const ELIM_ROUNDS = [
