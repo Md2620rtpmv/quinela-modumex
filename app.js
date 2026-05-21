@@ -64,12 +64,14 @@ const ELIM_ROUNDS = [
 
 const DEFAULT_PTS = {
   grupo_exacto: 3, grupo_ganador: 1,
-  elim_r32: 2, elim_r16: 4, elim_qf: 5, elim_sf: 6, elim_fin: 8, elim_3rd: 4
+  elim_enfrentamiento: 1,
+  elim_r32: 2, elim_r16: 4, elim_qf: 4, elim_sf: 6, elim_fin: 8, elim_3rd: 4
 };
 
 const PTS_LABELS = {
   grupo_exacto: 'Marcador exacto (grupos)',
   grupo_ganador: 'Ganador/empate (grupos)',
+  elim_enfrentamiento: 'Enfrentamiento correcto (los 2 equipos)',
   elim_r32: 'Dieciseisavos (ganador)',
   elim_r16: 'Octavos (ganador)',
   elim_qf: 'Cuartos (ganador)',
@@ -95,8 +97,8 @@ const ELIM_UNLOCK_DATE = new Date('2026-06-28T06:00:00Z'); // 00:00 CST = 06:00 
 // ═══════════════════════════════════════════
 // FECHA LÍMITE para capturar quinielas (empleados)
 // ═══════════════════════════════════════════
-// 11 de junio 2026, 10:00 AM hora México (UTC-6) = 16:00 UTC
-const QUINIELA_DEADLINE = new Date('2026-06-11T16:00:00Z');
+// 10 de junio 2026, 15:00 hrs hora México (UTC-6) = 21:00 UTC
+const QUINIELA_DEADLINE = new Date('2026-06-10T21:00:00Z');
 
 function isQuinielaOpen() {
   return new Date() < QUINIELA_DEADLINE;
@@ -348,11 +350,43 @@ function calcScore(pid) {
       const key = `${round.id}_${i}`;
       const real = state.elimResults[key];
       const pred = q.elim && q.elim[key];
-      if (!real || !real.winner) continue;
-      if (!pred || !pred.winner) continue;
-      if (real.winner.toUpperCase() === pred.winner.toUpperCase()) {
-        const pts = state.pts['elim_' + round.id] || DEFAULT_PTS['elim_' + round.id] || 0;
+      if (!real) continue;
+      if (!pred) continue;
+
+      let pts = 0;
+      const detailBreakdown = { enfrentamiento: 0, ganador: 0 };
+
+      // 1) Enfrentamiento correcto: 1 pt si los 2 equipos coinciden (sin importar orden)
+      const realTeams = [
+        (real.home || '').toUpperCase(),
+        (real.away || '').toUpperCase()
+      ].filter(t => t).sort();
+      const predTeams = [
+        (pred.home || '').toUpperCase(),
+        (pred.away || '').toUpperCase()
+      ].filter(t => t).sort();
+      const enfrentamientoCorrecto =
+        realTeams.length === 2 &&
+        predTeams.length === 2 &&
+        realTeams[0] === predTeams[0] &&
+        realTeams[1] === predTeams[1];
+      if (enfrentamientoCorrecto) {
+        const ptsEnf = state.pts.elim_enfrentamiento || DEFAULT_PTS.elim_enfrentamiento || 1;
+        pts += ptsEnf;
+        detailBreakdown.enfrentamiento = ptsEnf;
+      }
+
+      // 2) Ganador correcto: pts según ronda (solo si ambos tienen ganador definido y coinciden)
+      if (real.winner && pred.winner &&
+          real.winner.toUpperCase() === pred.winner.toUpperCase()) {
+        const ptsGan = state.pts['elim_' + round.id] || DEFAULT_PTS['elim_' + round.id] || 0;
+        pts += ptsGan;
+        detailBreakdown.ganador = ptsGan;
+      }
+
+      if (pts > 0) {
         detail[key] = pts;
+        detail[key + '_breakdown'] = detailBreakdown;
         total += pts;
       }
     }
@@ -654,9 +688,9 @@ function renderMiQuiniela() {
     const diff = QUINIELA_DEADLINE - now;
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
     const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
-    deadlineHtml = `<div class="alert alert-warn" style="margin-bottom:16px;">⏰ <strong>Fecha límite:</strong> 11 de junio 2026, 10:00 AM (hora México) · Quedan <strong>${days} días y ${hours} hrs</strong> para capturar.</div>`;
+    deadlineHtml = `<div class="alert alert-warn" style="margin-bottom:16px;">⏰ <strong>Fecha límite:</strong> 10 de junio 2026, 15:00 hrs (hora México) · Quedan <strong>${days} días y ${hours} hrs</strong> para capturar.</div>`;
   } else {
-    deadlineHtml = `<div class="alert alert-error" style="margin-bottom:16px;">🔒 <strong>Periodo cerrado.</strong> La fecha límite del 11 de junio ya pasó. Tu quiniela quedó congelada.</div>`;
+    deadlineHtml = `<div class="alert alert-error" style="margin-bottom:16px;">🔒 <strong>Periodo cerrado.</strong> La fecha límite del 10 de junio 15:00 hrs ya pasó. Tu quiniela quedó congelada.</div>`;
   }
 
   html += deadlineHtml;
@@ -853,7 +887,7 @@ function openEditQuiniela(pid) {
 
   // Verificar fecha límite (solo aplica a empleados, admin siempre puede editar)
   if (session.type === 'empleado' && !isQuinielaOpen()) {
-    showToast('🔒 El periodo de captura cerró el 11 de junio 10:00 AM. Solo el admin puede modificar.', 'warn', 5000);
+    showToast('🔒 El periodo de captura cerró el 10 de junio 15:00 hrs. Solo el admin puede modificar.', 'warn', 5000);
     return;
   }
 
