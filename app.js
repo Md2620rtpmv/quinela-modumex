@@ -1740,20 +1740,54 @@ async function savePts() {
 }
 
 async function resetAll() {
-  if (!confirm('¿BORRAR TODA LA BASE DE DATOS?\n\nSe eliminarán todos los participantes, quinielas y resultados.')) return;
-  if (!confirm('⚠️ ÚLTIMA CONFIRMACIÓN ⚠️\n\nEsta acción NO se puede deshacer.\n\n¿Estás 100% seguro?')) return;
+  if (session.type !== 'admin') return;
+
+  // Primera confirmación: explicación clara de qué se borra y qué se mantiene
+  const confirmacion1 = confirm(
+    '🚨 REINICIAR TODOS LOS DATOS\n\n' +
+    'Se ELIMINARÁ:\n' +
+    '  • Todos los participantes\n' +
+    '  • Todas las quinielas\n' +
+    '  • Todos los resultados (grupos y eliminatoria)\n' +
+    '  • El override manual de eliminatoria\n\n' +
+    'Se MANTENDRÁ:\n' +
+    '  • Configuración general (cuota, multiplicador, nombre)\n' +
+    '  • Sistema de puntos\n\n' +
+    '¿Continuar?'
+  );
+  if (!confirmacion1) return;
+
+  // Segunda confirmación: escribir "REINICIAR"
+  const palabra = prompt(
+    '⚠️ ÚLTIMA CONFIRMACIÓN ⚠️\n\n' +
+    'Para confirmar, escribe la palabra:\n\n' +
+    'REINICIAR\n\n' +
+    '(en mayúsculas, sin comillas)'
+  );
+  if (palabra !== 'REINICIAR') {
+    if (palabra !== null) showToast('Cancelado. La palabra no coincide.', 'warn');
+    return;
+  }
+
+  // Ejecutar reset
+  showToast('🔄 Reiniciando datos...', 'success', 2000);
   try {
     const batch = writeBatch(db);
+    // Borrar participantes
     state.participants.forEach(p => batch.delete(doc(db, 'participants', p.id)));
+    // Borrar quinielas
     Object.keys(state.quinielas).forEach(pid => batch.delete(doc(db, 'quinielas', pid)));
+    // Borrar resultados
     batch.delete(doc(db, 'results', 'all'));
     batch.delete(doc(db, 'elimResults', 'all'));
-    batch.delete(doc(db, 'config', 'general'));
-    batch.delete(doc(db, 'config', 'puntos'));
+    // Resetear override de eliminatoria (volver a modo automático)
+    batch.set(doc(db, 'config', 'elim'), { override: false }, { merge: true });
+
     await batch.commit();
-    showToast('Base de datos reiniciada', 'success');
+    showToast('✅ Datos reiniciados. Configuración conservada.', 'success', 4000);
   } catch (err) {
-    showToast('❌ ' + err.message, 'error');
+    console.error('Reset error:', err);
+    showToast('❌ Error al reiniciar: ' + err.message, 'error', 5000);
   }
 }
 
