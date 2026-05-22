@@ -706,10 +706,14 @@ input[type=password]{letter-spacing:2px;}
     <button class="btn btn-green btn-sm" style="margin-top:16px;" onclick="savePts()">Guardar puntos</button>
   </div>
 
-  <div class="card">
-    <div style="font-family:'Barlow Condensed';font-size:18px;font-weight:700;margin-bottom:12px;color:var(--red);">🗑️ Zona peligrosa</div>
-    <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Borrar TODA la base de datos. Esta acción no se puede deshacer.</p>
-    <button class="btn btn-danger" onclick="resetAll()">Reiniciar toda la base de datos</button>
+  <div class="card" style="border-color:rgba(220,53,69,.4);background:rgba(220,53,69,.05);">
+    <div style="font-family:'Barlow Condensed';font-size:18px;font-weight:700;margin-bottom:10px;color:var(--red);">🚨 Zona Peligrosa</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6;">
+      Borra <strong style="color:var(--white);">participantes, quinielas y resultados</strong> de un torneo terminado para empezar uno nuevo.<br>
+      Mantiene la configuración (cuota, sistema de puntos).<br>
+      <strong style="color:var(--red);">Esta acción NO se puede deshacer.</strong>
+    </p>
+    <button class="btn btn-danger" onclick="resetAll()">🔄 Reiniciar datos del torneo</button>
   </div>
 </div>
 
