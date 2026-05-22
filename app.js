@@ -638,6 +638,12 @@ function renderLeaderboard() {
   $('stat-played').textContent = played;
   $('stat-pending').textContent = total - played;
 
+  // Mostrar/ocultar botón de exportar según rol
+  const exportRow = $('leaderboard-export-row');
+  if (exportRow) {
+    exportRow.style.display = (session.type === 'admin' && state.participants.length > 0) ? 'flex' : 'none';
+  }
+
   const scores = state.participants.map(p => ({ ...p, score: calcScore(p.id).total }));
   scores.sort((a, b) => b.score - a.score);
 
@@ -662,6 +668,77 @@ function renderLeaderboard() {
   });
   html += `</tbody></table>`;
   $('leaderboard-body').innerHTML = html;
+}
+
+// Exportar tabla de posiciones a CSV (solo admin)
+function exportLeaderboardCSV() {
+  if (session.type !== 'admin') {
+    showToast('Solo el admin puede exportar', 'warn');
+    return;
+  }
+  if (!state.participants.length) {
+    showToast('No hay participantes para exportar', 'warn');
+    return;
+  }
+
+  // Calcular ranking
+  const scores = state.participants.map(p => ({ ...p, score: calcScore(p.id).total }));
+  scores.sort((a, b) => b.score - a.score);
+
+  // Helper: escapa un campo CSV (envuelve en comillas si tiene coma, comilla o salto de línea)
+  const csvField = (val) => {
+    if (val == null) return '';
+    const s = String(val);
+    if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+      return '"' + s.replace(/"/g, '""') + '"';
+    }
+    return s;
+  };
+
+  // Encabezado del archivo (informativo)
+  const fechaHoy = new Date().toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' });
+  const pozo = state.participants.filter(p => p.pago === 'pagado').length * state.config.cuota * state.config.mult;
+
+  // Construir CSV
+  const lineas = [];
+  // Cabecera informativa (en filas)
+  lineas.push(csvField('QUINIELA MODUMEX MUNDIAL 2026'));
+  lineas.push(csvField('Tabla de Posiciones · Generado: ' + fechaHoy));
+  lineas.push(csvField('Total participantes: ' + state.participants.length + ' · Pozo: $' + pozo.toLocaleString()));
+  lineas.push(''); // fila vacía
+
+  // Encabezados de columnas
+  lineas.push(['Posicion', 'Nombre', 'Area', 'Codigo', 'Pago', 'Puntos'].map(csvField).join(','));
+
+  // Filas de datos
+  scores.forEach((p, i) => {
+    const row = [
+      i + 1,
+      p.nombre || '',
+      p.area || '—',
+      p.codigo || '',
+      p.pago === 'pagado' ? 'Pagado' : 'Pendiente',
+      p.score
+    ].map(csvField).join(',');
+    lineas.push(row);
+  });
+
+  // Generar archivo y descargar
+  // Con BOM para que Excel reconozca UTF-8 (acentos correctos)
+  const BOM = '\uFEFF';
+  const csv = BOM + lineas.join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  const fechaArchivo = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  link.href = url;
+  link.download = `quiniela-modumex-tabla-${fechaArchivo}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+
+  showToast('✅ Archivo CSV descargado', 'success');
 }
 
 function escapeHtml(s) {
@@ -1891,6 +1968,7 @@ window.rebuildElimEditWinnerOptions = rebuildElimEditWinnerOptions;
 window.saveConfig = saveConfig;
 window.savePts = savePts;
 window.resetAll = resetAll;
+window.exportLeaderboardCSV = exportLeaderboardCSV;
 window.openModal = openModal;
 window.closeModal = closeModal;
 window.switchInner = switchInner;
