@@ -679,24 +679,25 @@ function renderResults() {
 
   // PRESERVAR ESTADO antes de re-renderizar:
   // - Qué grupo está activo
-  // - Qué input tenía el foco
-  // - Posición del cursor
+  // - Qué input tenía el foco (para devolvérselo)
   let activeGroup = null;
   const activeTab = tabsEl.querySelector('.inner-tab.active');
   if (activeTab) {
-    // Extraer el grupo del onclick, ej: switchInner('rg','rg-G',this) → G
     const match = activeTab.getAttribute('onclick') || '';
     const m = match.match(/rg-([A-L])/);
     if (m) activeGroup = m[1];
   }
 
+  // Detectar si el foco está en un input de resultados
+  // IMPORTANTE: Cuando Tab dispara onchange, el navegador YA movió el foco al siguiente input
+  // Por eso aquí capturamos el activeElement DESPUÉS del Tab, que es el destino correcto
   const focusedEl = document.activeElement;
   let focusedId = null;
   if (focusedEl && focusedEl.id && focusedEl.id.startsWith('res_')) {
     focusedId = focusedEl.id;
   }
 
-  // RE-RENDERIZAR
+  // RE-RENDERIZAR preservando grupo activo
   tabsEl.innerHTML = gkeys.map((g, i) => {
     const isActive = activeGroup ? (g === activeGroup) : (i === 0);
     return `<button class="inner-tab${isActive ? ' active' : ''}" onclick="switchInner('rg','rg-${g}',this)">Grupo ${g}</button>`;
@@ -706,33 +707,14 @@ function renderResults() {
     return `<div id="rg-${g}" class="inner-page${isActive ? ' active' : ''}">${renderGroupMatches(g)}</div>`;
   }).join('');
 
-  // RESTAURAR FOCO al siguiente input lógico
+  // RESTAURAR FOCO en el mismo input donde el navegador lo había puesto
+  // (no adelantamos al siguiente, eso lo hizo el Tab por sí mismo)
   if (focusedId) {
-    // Lógica del flujo: si estabas en _h, el siguiente lógico es _a del mismo partido
-    // Si estabas en _a, el siguiente es _h del partido siguiente
-    let nextId = null;
-    const match = focusedId.match(/^res_G_([A-L])_(\d+)_([ha])$/);
-    if (match) {
-      const grp = match[1];
-      const idx = parseInt(match[2]);
-      const half = match[3];
-      if (half === 'h') {
-        // Pasar al "a" del mismo partido
-        nextId = `res_G_${grp}_${idx}_a`;
-      } else {
-        // Pasar al "h" del siguiente partido del mismo grupo (si existe)
-        const totalMatches = GROUPS[grp].length;
-        if (idx + 1 < totalMatches) {
-          nextId = `res_G_${grp}_${idx + 1}_h`;
-        }
-      }
-    }
-    // Aplicar foco después de que el DOM actualice
     setTimeout(() => {
-      const nextEl = nextId ? $(nextId) : null;
-      if (nextEl) {
-        nextEl.focus();
-        nextEl.select();
+      const el = $(focusedId);
+      if (el) {
+        el.focus();
+        el.select();
       }
     }, 0);
   }
