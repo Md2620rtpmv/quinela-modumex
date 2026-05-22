@@ -6,6 +6,9 @@ import {
   getFirestore, doc, getDoc, setDoc, deleteDoc, collection,
   onSnapshot, query, writeBatch, deleteField, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {
+  getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDs2Wk2iODl-ksKd3gGMUutWeKDgkAVrds",
@@ -19,6 +22,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const auth = getAuth(app);
 
 // ═══════════════════════════════════════════
 // CONSTANTES DEL MUNDIAL
@@ -93,10 +97,8 @@ const PTS_LABELS = {
 };
 
 // ═══════════════════════════════════════════
-// AUTH (cliente)
+// AUTH (cliente) — Firebase Auth maneja el admin
 // ═══════════════════════════════════════════
-const ADMIN_USER = 'admin';
-const ADMIN_PASS = 'kP9xT2-mNqR8vL4'; // ← password actual
 const ADMIN_PAGES = ['quinielas','participantes','admin'];
 
 // ═══════════════════════════════════════════
@@ -432,18 +434,49 @@ function switchLoginTab(which, btn) {
   }, 50);
 }
 
-function doLoginAdmin() {
-  const u = $('login-user').value.trim();
-  const p = $('login-pass').value;
-  if (u === ADMIN_USER && p === ADMIN_PASS) {
-    session = { type: 'admin', pid: null, nombre: 'Admin' };
+async function doLoginAdmin() {
+  const email = $('login-user').value.trim();
+  const pass = $('login-pass').value;
+  const errEl = $('login-error-adm');
+
+  if (!email || !pass) {
+    errEl.textContent = 'Ingresa correo y contraseña';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  // Indicador visual de loading
+  const btn = document.querySelector('#login-tab-adm button.btn-green');
+  const originalText = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Verificando...'; }
+  errEl.style.display = 'none';
+
+  try {
+    // Intenta autenticarse con Firebase Auth
+    const userCred = await signInWithEmailAndPassword(auth, email, pass);
+    // Si llega aquí, el login fue exitoso
+    session = { type: 'admin', pid: null, nombre: 'Admin', email: userCred.user.email };
     sessionStorage.setItem('quiniela_session', JSON.stringify(session));
     closeLoginModal();
     updateAuthUI();
+    showToast('✅ Sesión de admin iniciada', 'success', 2000);
     if (_pendingPage) { const pp = _pendingPage; _pendingPage = null; navigateTo(pp); }
-  } else {
-    $('login-error-adm').style.display = 'block';
+  } catch (err) {
+    // Errores comunes:
+    // - auth/invalid-email: formato de correo inválido
+    // - auth/user-not-found: correo no registrado
+    // - auth/wrong-password: contraseña incorrecta
+    // - auth/invalid-credential: credenciales inválidas (nuevo Firebase 10+)
+    // - auth/too-many-requests: demasiados intentos fallidos
+    let msg = 'Credenciales incorrectas';
+    if (err.code === 'auth/invalid-email') msg = 'Formato de correo inválido';
+    else if (err.code === 'auth/too-many-requests') msg = 'Demasiados intentos. Espera unos minutos.';
+    else if (err.code === 'auth/network-request-failed') msg = 'Sin conexión a Firebase';
+    errEl.textContent = msg;
+    errEl.style.display = 'block';
     $('login-pass').value = '';
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = originalText; }
   }
 }
 
@@ -467,10 +500,14 @@ function doLoginEmpleado() {
   navigateTo('mi-quiniela');
 }
 
-function logout() {
+async function logout() {
   if (!confirm('¿Cerrar sesión?')) return;
+  const wasAdmin = session.type === 'admin';
   session = { type: null, pid: null, nombre: null };
   sessionStorage.removeItem('quiniela_session');
+  if (wasAdmin) {
+    try { await signOut(auth); } catch(e) { console.error('Error logout:', e); }
+  }
   updateAuthUI();
   navigateTo('tabla');
 }
@@ -480,16 +517,37 @@ function restoreSession() {
     const s = sessionStorage.getItem('quiniela_session');
     if (s) {
       const parsed = JSON.parse(s);
-      // Validar que el participante aún exista
       if (parsed.type === 'empleado' && parsed.pid) {
-        // Se valida después de que carguen los participantes
         session = parsed;
       } else if (parsed.type === 'admin') {
+        // Firebase Auth se valida via onAuthStateChanged más abajo;
+        // por ahora restauramos la sesión local provisionalmente
         session = parsed;
       }
     }
   } catch(e) {}
 }
+
+// Listener que mantiene sincronizada la sesión admin con Firebase Auth.
+// Si el token expira o se cierra sesión desde otro lado, se reflejará aquí.
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    // Hay usuario autenticado en Firebase
+    if (session.type !== 'admin') {
+      session = { type: 'admin', pid: null, nombre: 'Admin', email: user.email };
+      sessionStorage.setItem('quiniela_session', JSON.stringify(session));
+      updateAuthUI();
+    }
+  } else {
+    // No hay usuario autenticado en Firebase
+    if (session.type === 'admin') {
+      // La sesión admin local quedó obsoleta — cerrarla
+      session = { type: null, pid: null, nombre: null };
+      sessionStorage.removeItem('quiniela_session');
+      updateAuthUI();
+    }
+  }
+});
 
 function updateAuthUI() {
   $('login-btn').style.display = session.type ? 'none' : 'flex';
