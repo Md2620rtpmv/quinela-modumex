@@ -566,6 +566,10 @@ input[type=password]{letter-spacing:2px;}
     <div class="stat-pill"><div class="num" id="stat-played">0</div><div class="lbl">Partidos jugados</div></div>
     <div class="stat-pill"><div class="num" id="stat-pending">136</div><div class="lbl">Pendientes</div></div>
   </div>
+  <!-- Botón de exportar (solo admin) -->
+  <div id="leaderboard-export-row" style="display:none;justify-content:flex-end;margin-bottom:14px;">
+    <button class="btn btn-outline btn-sm" onclick="exportLeaderboardCSV()" title="Descargar la tabla en formato CSV">📥 Descargar CSV</button>
+  </div>
   <div class="card" style="padding:0;overflow:hidden;">
     <div id="leaderboard-body">
       <div class="empty-state"><div class="icon">🏆</div><p>Cargando datos...</p></div>
